@@ -15,6 +15,7 @@ import { Plus, Clock, FileText, Edit, Trash2, Play, BarChart3, Calendar } from "
 import type { Exam, ExamSubmission } from "@/lib/data"
 
 export function Exams() {
+  // Get user and data from hooks
   const { user } = useAuth()
   const {
     data,
@@ -25,78 +26,95 @@ export function Exams() {
     updateExamSubmission,
     deleteExamSubmission,
   } = useSupabaseData()
-  const [activeTab, setActiveTab] = useState("overview")
-  const [isCreatorOpen, setIsCreatorOpen] = useState(false)
-  const [isTakerOpen, setIsTakerOpen] = useState(false)
-  const [isResultsOpen, setIsResultsOpen] = useState(false)
+  
+  // State management with explicit types
+  const [activeTab, setActiveTab] = useState<string>("overview")
+  const [isCreatorOpen, setIsCreatorOpen] = useState<boolean>(false)
+  const [isTakerOpen, setIsTakerOpen] = useState<boolean>(false)
+  const [isResultsOpen, setIsResultsOpen] = useState<boolean>(false)
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null)
   const [editingExam, setEditingExam] = useState<Exam | null>(null)
-
+  
+  // Helper variables
   const canManageExams = user?.role === "admin" || user?.role === "instructor"
 
   // Filter exams based on user role
-  const userExams = data.exams.filter((exam) => {
-    const course = data.courses.find((c) => c.id === exam.courseId)
+  const userExams = data.exams.filter((currentExam) => {
+    const course = data.courses.find((c) => c.id === currentExam.courseid)
     if (!course) return false
 
     if (user?.role === "admin") return true
-    if (user?.role === "instructor") return course.instructorId === user.id
-    if (user?.role === "student") return course.studentIds.includes(user.id)
+    if (user?.role === "instructor") return course.instructorid === user.id
+    if (user?.role === "student") return Array.isArray(course.studentids) && course.studentids.includes(user.id)
     return false
   })
 
   const getExamSubmission = (examId: string): ExamSubmission | undefined => {
-    return data.examSubmissions.find((submission) => submission.examId === examId && submission.studentId === user?.id)
+    return data.examSubmissions?.find((submission: ExamSubmission) => 
+      submission.examid === examId && submission.studentid === user?.id
+    )
   }
 
-  const getExamStats = (exam: Exam) => {
-    const submissions = data.examSubmissions.filter((s) => s.examId === exam.id)
-    const completedSubmissions = submissions.filter((s) => s.status === "submitted" || s.status === "graded")
-    const averageScore =
-      completedSubmissions.length > 0
-        ? completedSubmissions.reduce((sum, s) => sum + (s.score || 0), 0) / completedSubmissions.length
-        : 0
-
+  const getExamStats = (currentExam: Exam) => {
+    const examSubmissions = (data.examSubmissions || []).filter((s: ExamSubmission) => s.examid === currentExam.id);
+    const completedExamSubmissions = examSubmissions.filter((s: ExamSubmission) => 
+      s.status === "submitted" || s.status === "graded"
+    );
+    
+    // Calculate average score based on marksawarded if available
+    const totalMarks = completedExamSubmissions.reduce((sum: number, s: ExamSubmission) => {
+      return sum + (s.marksawarded || 0);
+    }, 0);
+    
+    const averageScoreValue = completedExamSubmissions.length > 0 
+      ? totalMarks / completedExamSubmissions.length 
+      : 0;
+    
     return {
-      totalSubmissions: submissions.length,
-      completedSubmissions: completedSubmissions.length,
-      averageScore: Math.round(averageScore * 100) / 100,
-      course: data.courses.find((c) => c.id === exam.courseId),
+      totalSubmissions: examSubmissions.length,
+      completedSubmissions: completedExamSubmissions.length,
+      averageScore: Math.round(averageScoreValue * 100) / 100,
+      course: data.courses.find((c) => c.id === currentExam.courseid),
+    };
+  }
+
+  const handleCreateExam = (): void => {
+    setEditingExam(null);
+    setIsCreatorOpen(true);
+  }
+
+  const handleEditExam = (exam: Exam): void => {
+    setEditingExam(exam);
+    setIsCreatorOpen(true);
+  }
+
+  const handleDeleteExam = async (examId: string): Promise<void> => {
+    if (!deleteExam) {
+      console.error('Delete exam function is not available');
+      return;
     }
-  }
-
-  const handleCreateExam = () => {
-    setEditingExam(null)
-    setIsCreatorOpen(true)
-  }
-
-  const handleEditExam = (exam: Exam) => {
-    setEditingExam(exam)
-    setIsCreatorOpen(true)
-  }
-
-  const handleDeleteExam = async (examId: string) => {
+    
     try {
-      await deleteExam(examId)
+      await deleteExam(examId);
     } catch (err) {
-      console.error(err)
+      console.error('Error deleting exam:', err);
     }
   }
 
-  const handleTakeExam = (exam: Exam) => {
-    setSelectedExam(exam)
-    setIsTakerOpen(true)
+  const handleTakeExam = (exam: Exam): void => {
+    setSelectedExam(exam);
+    setIsTakerOpen(true);
   }
 
-  const handleViewResults = (exam: Exam) => {
-    setSelectedExam(exam)
-    setIsResultsOpen(true)
+  const handleViewResults = (exam: Exam): void => {
+    setSelectedExam(exam);
+    setIsResultsOpen(true);
   }
 
-  const getExamStatus = (exam: Exam) => {
+  const getExamStatus = (exam: Exam): string => {
     const now = new Date()
-    const examDate = new Date(`${exam.date} ${exam.startTime}`)
-    const examEndDate = new Date(`${exam.date} ${exam.endTime}`)
+    const examDate = new Date(`${exam.date} ${exam.starttime}`)
+    const examEndDate = new Date(`${exam.date} ${exam.endtime}`)
 
     if (now < examDate) return "upcoming"
     if (now > examEndDate) return "completed"
@@ -137,7 +155,11 @@ export function Exams() {
         )}
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs 
+        value={activeTab} 
+        onValueChange={(value: string) => setActiveTab(value)} 
+        className="space-y-4"
+      >
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           {user?.role === "student" && <TabsTrigger value="available">Available Exams</TabsTrigger>}
@@ -168,7 +190,7 @@ export function Exams() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">
-                      {data.examSubmissions.filter((s) => s.studentId === user.id && s.status !== "in-progress").length}
+                      {data.examSubmissions.filter((s) => s.studentid === user.id && s.status !== "in-progress").length}
                     </div>
                     <p className="text-xs text-muted-foreground">Submitted exams</p>
                   </CardContent>
@@ -183,7 +205,7 @@ export function Exams() {
                     <div className="text-2xl font-bold">
                       {(() => {
                         const gradedSubmissions = data.examSubmissions.filter(
-                          (s) => s.studentId === user.id && s.status === "graded" && s.score !== undefined,
+                          (s) => s.studentid === user.id && s.status === "graded" && s.score !== undefined,
                         )
                         if (gradedSubmissions.length === 0) return "N/A"
                         const avg =
@@ -235,11 +257,11 @@ export function Exams() {
                     <div className="space-y-3">
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Calendar className="h-4 w-4 mr-2" />
-                        {new Date(exam.date).toLocaleDateString()} at {exam.startTime}
+                        {new Date(exam.date).toLocaleDateString()} at {exam.starttime}
                       </div>
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Clock className="h-4 w-4 mr-2" />
-                        {exam.duration} minutes • {exam.totalPoints} points
+                        {exam.duration} minutes • {exam.totalpoints} points
                       </div>
                       <div className="flex items-center text-sm text-muted-foreground">
                         <FileText className="h-4 w-4 mr-2" />
@@ -252,21 +274,27 @@ export function Exams() {
                             <div className="space-y-2">
                               <div className="flex justify-between text-sm">
                                 <span>Status:</span>
-                                <Badge variant={submission.status === "graded" ? "default" : "secondary"}>
-                                  {submission.status}
-                                </Badge>
+                                <div className="text-right">
+                                  <Badge variant={submission.status === "graded" ? "default" : "secondary"}>
+                                    {submission.status}
+                                  </Badge>
+                                  {submission.marksawarded !== undefined && (
+                                    <div className="text-lg font-bold mt-1">
+                                      {submission.marksawarded}%
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                              {submission.score !== undefined && (
+                              {submission.score !== undefined && submission.maxscore !== undefined && (
                                 <div className="flex justify-between text-sm">
                                   <span>Score:</span>
                                   <span className="font-medium">
-                                    {Math.round((submission.score / submission.maxScore) * 100)}%
+                                    {Math.round((submission.score / submission.maxscore) * 100)}%
                                   </span>
                                 </div>
                               )}
                               <Button
                                 variant="outline"
-                                size="sm"
                                 className="w-full"
                                 onClick={() => handleViewResults(exam)}
                               >
@@ -326,26 +354,29 @@ export function Exams() {
           <>
             <TabsContent value="available" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {userExams
-                  .filter((exam) => !getExamSubmission(exam.id) && getExamStatus(exam) === "active")
-                  .map((exam) => {
-                    const course = data.courses.find((c) => c.id === exam.courseId)
+                {data.examSubmissions
+                  .filter((submission) => submission.studentid === user?.id && submission.status !== "in-progress")
+                  .map((submission) => {
+                    const exam = data.exams.find((e) => e.id === submission.examid);
+                    const course = exam ? data.courses.find((c) => c.id === exam.courseid) : null;
+                    if (!exam || !course) return null;
+
                     return (
-                      <Card key={exam.id}>
+                      <Card key={submission.id}>
                         <CardHeader>
                           <CardTitle>{exam.name}</CardTitle>
                           <CardDescription>{course?.name}</CardDescription>
                         </CardHeader>
                         <CardContent>
                           <div className="space-y-3">
-                            <p className="text-sm text-muted-foreground">{exam.description}</p>
+                            <p className="text-sm text-muted-foreground">{exam?.description || 'No description available'}</p>
                             <div className="flex items-center justify-between text-sm">
-                              <span>Duration: {exam.duration} minutes</span>
-                              <span>Points: {exam.totalPoints}</span>
+                              <span>Duration: {exam?.duration || 0} minutes</span>
+                              <span>Points: {exam?.totalpoints || 0}</span>
                             </div>
                             <div className="flex items-center justify-between text-sm">
-                              <span>Questions: {exam.questions.length}</span>
-                              <span>Attempts: {exam.attempts}</span>
+                              <span>Questions: {exam?.questions?.length || 0}</span>
+                              <span>Attempts: {exam?.attempts || 0}</span>
                             </div>
                             <Button className="w-full" onClick={() => handleTakeExam(exam)}>
                               <Play className="h-4 w-4 mr-2" />
@@ -362,44 +393,41 @@ export function Exams() {
             <TabsContent value="completed" className="space-y-4">
               <div className="space-y-4">
                 {data.examSubmissions
-                  .filter((submission) => submission.studentId === user.id && submission.status !== "in-progress")
+                  .filter((submission) => submission.studentid === user?.id && submission.status !== "in-progress")
                   .map((submission) => {
-                    const exam = data.exams.find((e) => e.id === submission.examId)
-                    const course = exam ? data.courses.find((c) => c.id === exam.courseId) : null
-                    if (!exam || !course) return null
+                    const exam = data.exams.find((e) => e.id === submission.examid);
+                    const course = exam ? data.courses.find((c) => c.id === exam.courseid) : null;
+                    if (!exam || !course) return null;
 
                     return (
                       <Card key={submission.id}>
                         <CardHeader>
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <CardTitle>{exam.name}</CardTitle>
-                              <CardDescription>{course.name}</CardDescription>
-                            </div>
-                            <div className="text-right">
-                              <Badge variant={submission.status === "graded" ? "default" : "secondary"}>
-                                {submission.status}
-                              </Badge>
-                              {submission.score !== undefined && (
-                                <div className="text-lg font-bold mt-1">
-                                  {Math.round((submission.score / submission.maxScore) * 100)}%
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                          <CardTitle>{exam.name}</CardTitle>
+                          <CardDescription>{course?.name}</CardDescription>
                         </CardHeader>
                         <CardContent>
-                          <div className="flex justify-between items-center">
-                            <div className="text-sm text-muted-foreground">
-                              Submitted: {new Date(submission.submitTime || submission.startTime).toLocaleString()}
+                          <div className="space-y-3">
+                            <p className="text-sm text-muted-foreground">{exam?.description || 'No description available'}</p>
+                            <div className="flex items-center justify-between text-sm">
+                              <span>Duration: {exam?.duration || 0} minutes</span>
+                              <span>Points: {exam?.totalpoints || 0}</span>
                             </div>
-                            <Button variant="outline" onClick={() => handleViewResults(exam)}>
-                              View Details
-                            </Button>
+                            <div className="flex items-center justify-between text-sm">
+                              <span>Questions: {exam?.questions?.length || 0}</span>
+                              <span>Attempts: {exam?.attempts || 0}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <div className="text-sm text-muted-foreground">
+                                Submitted: {new Date(submission.submissiondate).toLocaleString()}
+                              </div>
+                              <Button variant="outline" onClick={() => handleViewResults(exam)}>
+                                View Details
+                              </Button>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
-                    )
+                    );
                   })}
               </div>
             </TabsContent>
@@ -411,48 +439,57 @@ export function Exams() {
       <Dialog open={isCreatorOpen} onOpenChange={setIsCreatorOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingExam ? "Edit Exam" : "Create New Exam"}</DialogTitle>
+            <DialogTitle>{editingExam ? 'Edit Exam' : 'Create New Exam'}</DialogTitle>
             <DialogDescription>
-              {editingExam ? "Update exam details and questions" : "Create a comprehensive examination"}
+              {editingExam ? 'Update the exam details below' : 'Fill in the details to create a new exam'}
             </DialogDescription>
           </DialogHeader>
           <ExamCreator
             exam={editingExam}
             onSave={(exam) => {
-              if (editingExam) {
-                updateExam(exam)
-              } else {
-                addExam(exam)
+              if (editingExam && updateExam) {
+                updateExam(editingExam.id, exam);
+              } else if (addExam) {
+                addExam(exam);
               }
-              setIsCreatorOpen(false)
+              setIsCreatorOpen(false);
+              setEditingExam(null);
             }}
-            onCancel={() => setIsCreatorOpen(false)}
+            onCancel={() => {
+              setIsCreatorOpen(false);
+              setEditingExam(null);
+            }}
           />
         </DialogContent>
       </Dialog>
 
       {/* Exam Taker Dialog */}
-      <Dialog open={isTakerOpen} onOpenChange={setIsTakerOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{selectedExam?.name}</DialogTitle>
-            <DialogDescription>Complete your examination</DialogDescription>
-          </DialogHeader>
-          {selectedExam && (
+      {selectedExam && (
+        <Dialog 
+          open={isTakerOpen} 
+          onOpenChange={(open) => setIsTakerOpen(open)}
+        >
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{selectedExam.name}</DialogTitle>
+              <DialogDescription>Complete your examination</DialogDescription>
+            </DialogHeader>
             <ExamTaker
               exam={selectedExam}
-              onSubmit={(submission) => {
-                addExamSubmission(submission)
-                setIsTakerOpen(false)
+              onSubmit={(submission: ExamSubmission) => {
+                if (addExamSubmission) {
+                  addExamSubmission(submission);
+                }
+                setIsTakerOpen(false);
               }}
               onCancel={() => setIsTakerOpen(false)}
             />
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Exam Results Dialog */}
-      <Dialog open={isResultsOpen} onOpenChange={setIsResultsOpen}>
+      <Dialog open={isResultsOpen} onOpenChange={(open) => setIsResultsOpen(open)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedExam?.name} - Results</DialogTitle>
@@ -461,7 +498,7 @@ export function Exams() {
           {selectedExam && (
             <ExamResults
               exam={selectedExam}
-              submissions={data.examSubmissions.filter((s) => s.examId === selectedExam.id)}
+              submissions={data.examSubmissions.filter((s) => s.examid === selectedExam.id)}
               currentUser={user}
               onClose={() => setIsResultsOpen(false)}
             />

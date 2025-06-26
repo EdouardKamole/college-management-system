@@ -38,16 +38,16 @@ export function Courses() {
     schedule: "",
   });
 
-  const canManageCourses = user?.role === "admin";
+  const canManageCourses = user?.role === "admin" || user?.role === "instructor";
   
   // Safely get user courses with null checks
   const userCourses = React.useMemo(() => {
     if (!data?.courses) return [];
     
     return user?.role === "instructor"
-      ? data.courses.filter((c) => c.instructorId === user.id)
+      ? data.courses.filter((c) => c.instructorid === user.id)
       : user?.role === "student"
-      ? data.courses.filter((c) => c.studentIds?.includes?.(user.id) ?? false)
+      ? data.courses.filter((c) => c.studentids?.includes?.(user.id) ?? false)
       : data.courses || [];
   }, [data?.courses, user?.role, user?.id]);
 
@@ -62,12 +62,12 @@ export function Courses() {
       } else {
         await addCourse({
           ...formData,
-          instructorId: user?.id || "",
-          studentIds: [],
-          requiredEducationLevel: ["UACE"],
-          requiredSubjects: [],
-          minimumPoints: 0,
-          passMark: 50,
+          instructorid: user?.id || "",
+          studentids: [],
+          requirededucationlevel: ["UACE"],
+          requiredsubjects: [],
+          minimumpoints: 0,
+          passmark: 50,
           duration: "6",
           category: "technical",
         });
@@ -100,8 +100,8 @@ export function Courses() {
     }
   };
 
-  const getInstructorName = (instructorId: string) => {
-    const instructor = instructors.find((i) => i.id === instructorId);
+  const getInstructorName = (instructorid: string) => {
+    const instructor = instructors.find((i) => i.id === instructorid);
     return instructor?.name || "Unknown";
   };
 
@@ -255,11 +255,11 @@ export function Courses() {
                 </div>
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Users className="h-4 w-4 mr-2" />
-                  {course.studentIds?.length || 0} students enrolled
+                  {course.studentids?.length || 0} students enrolled
                 </div>
                 <div className="flex items-center justify-between">
                   <Badge variant="secondary">
-                    {getInstructorName(course.instructorId)}
+                    {getInstructorName(course.instructorid)}
                   </Badge>
                   <Badge variant="outline">Active</Badge>
                 </div>

@@ -7,22 +7,22 @@ export interface User {
   name: string;
   email: string;
   // Student bio data
-  dateOfBirth?: string;
-  homeDistrict?: string;
-  studentTelNo?: string;
-  fatherName?: string;
-  fatherContact?: string;
-  motherName?: string;
-  motherContact?: string;
-  nextOfKinName?: string;
-  nextOfKinContact?: string;
-  educationLevel?: "UACE" | "Diploma" | "Degree" | "Master";
-  subjectCombination?: string[];
-  totalPoints?: number;
-  courseId?: string;
-  dateOfEnrollment?: string;
-  academicStatus?: "active" | "probation" | "suspended" | "graduated";
-  performancePrediction?: "excellent" | "good" | "average" | "poor" | "at-risk";
+  dateofbirth?: string;
+  homedistrict?: string;
+  studenttelno?: string;
+  fathername?: string;
+  fathercontact?: string;
+  mothername?: string;
+  mothercontact?: string;
+  nextofkinname?: string;
+  nextofkincontact?: string;
+  educationlevel?: "UACE" | "Diploma" | "Degree" | "Master";
+  subjectcombination?: string[];
+  totalpoints?: number;
+  courseid?: string;
+  dateofenrollment?: string;
+  academicstatus?: "active" | "probation" | "suspended" | "graduated";
+  performanceprediction?: "excellent" | "good" | "average" | "poor" | "at-risk";
 }
 
 export interface Course {
@@ -30,14 +30,14 @@ export interface Course {
   name: string;
   description: string;
   schedule: string;
-  instructorId: string;
-  studentIds: string[];
+  instructorid: string;
+  studentids: string[];
   // Course requirements
-  requiredEducationLevel: ("UACE" | "Diploma" | "Degree" | "Master")[];
-  requiredSubjects: string[];
-  minimumPoints: number;
-  passMark: number;
-  duration: string; // in months
+  requirededucationlevel: ("UACE" | "Diploma" | "Degree" | "Master")[];
+  requiredsubjects: string[];
+  minimumpoints: number;
+  passmark: number;
+  duration: string; 
   category: "technical" | "engineering" | "operations" | "safety";
 }
 
@@ -46,37 +46,41 @@ export interface Question {
   type: string; // e.g., 'multiple-choice', 'short-answer', etc.
   question: string;
   options?: string[];
-  correctAnswer?: string | number;
+  correctanswer?: string | number;
   points: number;
   required?: boolean;
 }
 
 export interface Exam {
   id: string;
-  courseId: string;
+  courseid: string;
   name: string;
   date: string;
-  time: string;
+  starttime: string;
+  endtime: string;
   location: string;
-  totalMarks: number;
-  startTime: string;
-  endTime: string;
+  totalmarks: number;
   duration: number;
-  totalPoints: number;
+  totalpoints: number;
   attempts: number;
   description: string;
-  status: string;
+  instructions: string;
+  status: 'draft' | 'published';
   questions: Question[];
+  showresults?: boolean;
+  randomizequestions?: boolean;
+  createdby?: string;
+  createdat?: string;
 }
 
 export interface Grade {
   id: string;
-  studentId: string;
-  courseId: string;
-  examId?: string;
+  studentid: string;
+  courseid: string;
+  examid?: string;
   name: string;
   score: number;
-  maxScore: number;
+  maxscore: number;
   weight: number;
   date: string;
   feedback?: string;
@@ -87,43 +91,45 @@ export interface Grade {
 
 export interface Attendance {
   id: string;
-  studentId: string;
-  courseId: string;
+  studentid: string;
+  courseid: string;
   date: string;
   status: string;
 }
 
 export interface Resource {
   id: string;
-  courseId: string;
+  courseid: string;
   title: string;
   description: string;
-  fileUrl: string;
-  uploadDate: string;
+  fileurl: string;
+  uploaddate: string;
 }
 
 export interface Schedule {
   id: string;
-  courseId: string;
-  dayOfWeek: string;
-  startTime: string;
-  endTime: string;
+  courseid: string;
+  dayofweek: string;
+  starttime: string;
+  endtime: string;
   location: string;
 }
 
 export interface ExamSubmission {
   id: string;
-  examId: string;
-  studentId: string;
-  submissionDate: string;
-  fileUrl: string;
-  marksAwarded?: number;
+  examid: string;
+  studentid: string;
+  submissiondate: string;
+  fileurl: string;
+  marksawarded?: number;
+  score?: number;
+  maxscore?: number;
   status: 'in-progress' | 'submitted' | 'graded';
 }
 
 export interface GradeCategory {
   id: string;
-  courseId: string;
+  courseid: string;
   name: string;
   weight: number; // percentage weight in final grade
   color: string;
@@ -132,16 +138,16 @@ export interface GradeCategory {
 
 export interface CourseGrade {
   id: string;
-  studentId: string;
-  courseId: string;
+  studentid: string;
+  courseid: string;
   semester: string;
   year: number;
   credits: number;
   percentage: number;
-  letterGrade: string;
+  lettergrade: string;
   gpa: number;
-  finalLetterGrade?: string;
-  isComplete: boolean;
+  finallettergrade?: string;
+  iscomplete: boolean;
 }
 
 export interface GradeScale {
@@ -149,55 +155,55 @@ export interface GradeScale {
   name: string;
   scale: {
     letter: string;
-    minPercentage: number;
-    maxPercentage: number;
-    gpaPoints: number;
+    minpercentage: number;
+    maxpercentage: number;
+    gpapoints: number;
   }[];
 }
 
 export interface Transcript {
   id: string;
-  studentId: string;
-  generatedDate: string;
-  generatedBy: string;
+  studentid: string;
+  generateddate: string;
+  generatedby: string;
   semesters: {
     semester: string;
     year: number;
     courses: CourseGrade[];
-    semesterGPA: number;
-    semesterCredits: number;
+    semestergpa: number;
+    semestercredits: number;
   }[];
-  cumulativeGPA: number;
-  totalCredits: number;
-  academicStanding: string;
+  cumulativegpa: number;
+  totalcredits: number;
+  academicstanding: string;
 }
 
 export interface StudentPerformance {
   id: string;
-  studentId: string;
-  courseId: string;
-  weeklyTests: {
+  studentid: string;
+  courseid: string;
+  weeklytests: {
     week: number;
     score: number;
-    maxScore: number;
+    maxscore: number;
     date: string;
   }[];
-  monthlyTests: {
+  monthlytests: {
     month: number;
     score: number;
-    maxScore: number;
+    maxscore: number;
     date: string;
   }[];
-  moduleExams: {
-    moduleId: string;
+  moduleexams: {
+    moduleid: string;
     score: number;
-    maxScore: number;
+    maxscore: number;
     date: string;
     passed: boolean;
   }[];
-  overallPerformance: number;
-  predictionStatus: "excellent" | "good" | "average" | "poor" | "at-risk";
-  lastUpdated: string;
+  overallperformance: number;
+  predictionstatus: "excellent" | "good" | "average" | "poor" | "at-risk";
+  lastupdated: string;
 }
 
 // Update the main data interface
@@ -209,12 +215,12 @@ interface AppData {
   attendance: Attendance[];
   resources: Resource[];
   schedules: Schedule[];
-  examSubmissions: ExamSubmission[];
-  gradeCategories: GradeCategory[];
-  courseGrades: CourseGrade[];
-  gradeScales: GradeScale[];
+  examsubmissions: ExamSubmission[];
+  gradecategories: GradeCategory[];
+  coursegrades: CourseGrade[];
+  gradescales: GradeScale[];
   transcripts: Transcript[];
-  studentPerformances: StudentPerformance[];
+  studentperformances: StudentPerformance[];
 }
 
 // Export interfaces and types
@@ -251,22 +257,22 @@ const initialData: AppData = {
       role: "student" as const,
       name: "Cadet Michael Brown",
       email: "michael.brown@uafc.mil",
-      dateOfBirth: "2000-05-15",
-      homeDistrict: "Kampala",
-      studentTelNo: "+256701234567",
-      fatherName: "Robert Brown",
-      fatherContact: "+256701234568",
-      motherName: "Mary Brown",
-      motherContact: "+256701234569",
-      nextOfKinName: "John Brown",
-      nextOfKinContact: "+256701234570",
-      educationLevel: "UACE" as const,
-      subjectCombination: ["Physics", "Chemistry", "Mathematics"],
-      totalPoints: 15,
-      courseId: "69f7c8d0-8e3f-6a5b-1c2d-3e4f5a6b7c8d",
-      dateOfEnrollment: "2024-01-15",
-      academicStatus: "active" as const,
-      performancePrediction: "good" as const,
+      dateofbirth: "2000-05-15",
+      homedistrict: "Kampala",
+      studenttelno: "+256701234567",
+      fathername: "Robert Brown",
+      fathercontact: "+256701234568",
+      mothername: "Mary Brown",
+      mothercontact: "+256701234569",
+      nextofkinname: "John Brown",
+      nextofkincontact: "+256701234570",
+      educationlevel: "UACE" as const,
+      subjectcombination: ["Physics", "Chemistry", "Mathematics"],
+      totalpoints: 15,
+      courseid: "69f7c8d0-8e3f-6a5b-1c2d-3e4f5a6b7c8d",
+      dateofenrollment: "2024-01-15",
+      academicstatus: "active" as const,
+      performanceprediction: "good" as const,
     },
   ],
   courses: [
@@ -275,12 +281,12 @@ const initialData: AppData = {
       name: "Piloting Course",
       description: "Comprehensive pilot training program",
       schedule: "Mon-Fri 08:00-17:00",
-      instructorId: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
-      studentIds: ["58e6b4c9-7d3e-5f2a-0b4c-9e1f2a3b4c5d"],
-      requiredEducationLevel: ["UACE", "Diploma", "Degree"],
-      requiredSubjects: ["Physics", "Mathematics"],
-      minimumPoints: 7,
-      passMark: 75,
+      instructorid: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
+      studentids: ["58e6b4c9-7d3e-5f2a-0b4c-9e1f2a3b4c5d"],
+      requirededucationlevel: ["UACE", "Diploma", "Degree"],
+      requiredsubjects: ["Physics", "Mathematics"],
+      minimumpoints: 7,
+      passmark: 75,
       duration: "24",
       category: "operations",
     },
@@ -289,12 +295,12 @@ const initialData: AppData = {
       name: "Electrical Engineering Course",
       description: "Electrical systems and engineering principles",
       schedule: "Mon-Fri 08:00-17:00",
-      instructorId: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
-      studentIds: [],
-      requiredEducationLevel: ["UACE", "Diploma", "Degree"],
-      requiredSubjects: ["Physics", "Mathematics"],
-      minimumPoints: 7,
-      passMark: 75,
+      instructorid: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
+      studentids: [],
+      requirededucationlevel: ["UACE", "Diploma", "Degree"],
+      requiredsubjects: ["Physics", "Mathematics"],
+      minimumpoints: 7,
+      passmark: 75,
       duration: "18",
       category: "engineering",
     },
@@ -303,12 +309,12 @@ const initialData: AppData = {
       name: "Mechanical Engineering Course",
       description: "Mechanical systems and maintenance",
       schedule: "Mon-Fri 08:00-17:00",
-      instructorId: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
-      studentIds: [],
-      requiredEducationLevel: ["UACE", "Diploma", "Degree"],
-      requiredSubjects: ["Physics", "Mathematics"],
-      minimumPoints: 7,
-      passMark: 75,
+      instructorid: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
+      studentids: [],
+      requirededucationlevel: ["UACE", "Diploma", "Degree"],
+      requiredsubjects: ["Physics", "Mathematics"],
+      minimumpoints: 7,
+      passmark: 75,
       duration: "18",
       category: "engineering",
     },
@@ -317,12 +323,12 @@ const initialData: AppData = {
       name: "Workshop and Technology",
       description: "Technical workshop skills and technology",
       schedule: "Mon-Fri 08:00-17:00",
-      instructorId: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
-      studentIds: [],
-      requiredEducationLevel: ["UACE", "Diploma"],
-      requiredSubjects: ["Physics", "Mathematics"],
-      minimumPoints: 7,
-      passMark: 75,
+      instructorid: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
+      studentids: [],
+      requirededucationlevel: ["UACE", "Diploma"],
+      requiredsubjects: ["Physics", "Mathematics"],
+      minimumpoints: 7,
+      passmark: 75,
       duration: "12",
       category: "technical",
     },
@@ -331,12 +337,12 @@ const initialData: AppData = {
       name: "Technical Stores Course",
       description: "Technical inventory and stores management",
       schedule: "Mon-Fri 08:00-17:00",
-      instructorId: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
-      studentIds: [],
-      requiredEducationLevel: ["UACE", "Diploma"],
-      requiredSubjects: ["Mathematics"],
-      minimumPoints: 7,
-      passMark: 75,
+      instructorid: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
+      studentids: [],
+      requirededucationlevel: ["UACE", "Diploma"],
+      requiredsubjects: ["Mathematics"],
+      minimumpoints: 7,
+      passmark: 75,
       duration: "6",
       category: "technical",
     },
@@ -345,12 +351,12 @@ const initialData: AppData = {
       name: "Flight Operations",
       description: "Flight operations and air traffic management",
       schedule: "Mon-Fri 08:00-17:00",
-      instructorId: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
-      studentIds: [],
-      requiredEducationLevel: ["UACE", "Diploma", "Degree"],
-      requiredSubjects: ["Physics", "Mathematics"],
-      minimumPoints: 7,
-      passMark: 75,
+      instructorid: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
+      studentids: [],
+      requirededucationlevel: ["UACE", "Diploma", "Degree"],
+      requiredsubjects: ["Physics", "Mathematics"],
+      minimumpoints: 7,
+      passmark: 75,
       duration: "12",
       category: "operations",
     },
@@ -359,12 +365,12 @@ const initialData: AppData = {
       name: "Fire and Safety",
       description: "Fire prevention and safety protocols",
       schedule: "Mon-Fri 08:00-17:00",
-      instructorId: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
-      studentIds: [],
-      requiredEducationLevel: ["UACE", "Diploma"],
-      requiredSubjects: ["Physics"],
-      minimumPoints: 7,
-      passMark: 75,
+      instructorid: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
+      studentids: [],
+      requirededucationlevel: ["UACE", "Diploma"],
+      requiredsubjects: ["Physics"],
+      minimumpoints: 7,
+      passmark: 75,
       duration: "8",
       category: "safety",
     },
@@ -373,12 +379,12 @@ const initialData: AppData = {
       name: "Basic Radar Course",
       description: "Radar systems and operations",
       schedule: "Mon-Fri 08:00-17:00",
-      instructorId: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
-      studentIds: [],
-      requiredEducationLevel: ["UACE", "Diploma", "Degree"],
-      requiredSubjects: ["Physics", "Mathematics"],
-      minimumPoints: 7,
-      passMark: 75,
+      instructorid: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
+      studentids: [],
+      requirededucationlevel: ["UACE", "Diploma", "Degree"],
+      requiredsubjects: ["Physics", "Mathematics"],
+      minimumpoints: 7,
+      passmark: 75,
       duration: "10",
       category: "technical",
     },
@@ -388,12 +394,12 @@ const initialData: AppData = {
   attendance: [],
   resources: [],
   schedules: [],
-  examSubmissions: [],
-  gradeCategories: [],
-  courseGrades: [],
-  gradeScales: [],
+  examsubmissions: [],
+  gradecategories: [],
+  coursegrades: [],
+  gradescales: [],
   transcripts: [],
-  studentPerformances: [],
+  studentperformances: [],
 };
 
 // Export just what we need for seeding

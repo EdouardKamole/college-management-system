@@ -22,39 +22,47 @@ interface ExamCreatorProps {
 export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
   const { user } = useAuth()
   const { data } = useData()
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Omit<Exam, 'id' | 'questions'> & { questions: Question[] }>({
     name: "",
     description: "",
     instructions: "",
-    courseId: "",
+    courseid: "",
     date: "",
-    startTime: "",
-    endTime: "",
+    starttime: "",
+    endtime: "",
+    location: "",
+    totalmarks: 100,
     duration: 60,
+    totalpoints: 100,
     attempts: 1,
-    showResults: true,
-    randomizeQuestions: false,
-    status: "draft" as "draft" | "published",
+    status: "draft",
+    questions: [],
+    showresults: true,
+    randomizequestions: false
   })
   const [questions, setQuestions] = useState<Question[]>([])
 
-  const userCourses = data.courses.filter((course) => user?.role === "admin" || course.instructorId === user?.id)
+  const userCourses = data.courses.filter((course) => user?.role === "admin" || course.instructorid === user?.id)
 
   useEffect(() => {
     if (exam) {
       setFormData({
         name: exam.name,
         description: exam.description,
-        instructions: exam.instructions,
-        courseId: exam.courseId,
+        instructions: exam.instructions || "",
+        courseid: exam.courseid,
         date: exam.date,
-        startTime: exam.startTime,
-        endTime: exam.endTime,
+        starttime: exam.starttime,
+        endtime: exam.endtime,
+        location: exam.location || "",
+        totalmarks: exam.totalmarks || 100,
         duration: exam.duration,
+        totalpoints: exam.totalpoints || 100,
         attempts: exam.attempts,
-        showResults: exam.showResults,
-        randomizeQuestions: exam.randomizeQuestions,
-        status: exam.status,
+        status: exam.status || "draft",
+        questions: exam.questions || [],
+        showresults: exam.showresults !== undefined ? exam.showresults : true,
+        randomizequestions: exam.randomizequestions,
       })
       setQuestions(exam.questions)
     }
@@ -97,7 +105,7 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
   }
 
   const handleSave = (status: "draft" | "published") => {
-    if (!formData.name || !formData.courseId || questions.length === 0) {
+    if (!formData.name || !formData.courseid || questions.length === 0) {
       alert("Please fill in all required fields and add at least one question.")
       return
     }
@@ -107,9 +115,9 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
       ...formData,
       status,
       questions,
-      totalPoints: calculateTotalPoints(),
-      createdBy: user?.id || "",
-      createdAt: exam?.createdAt || new Date().toISOString(),
+      totalpoints: calculateTotalPoints(),
+      createdby: user?.id || "",
+      createdat: exam?.createdat || new Date().toISOString(),
     }
 
     onSave(examData)
@@ -169,8 +177,8 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
                     <input
                       type="radio"
                       name={`correct-${index}`}
-                      checked={question.correctAnswer === optionIndex}
-                      onChange={() => updateQuestion(index, { correctAnswer: optionIndex })}
+                      checked={question.correctanswer === optionIndex}
+                      onChange={() => updateQuestion(index, { correctanswer: optionIndex })}
                       className="w-4 h-4"
                     />
                     <Input
@@ -263,8 +271,14 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
             <div>
               <Label htmlFor="course">Course</Label>
               <Select
-                value={formData.courseId}
-                onValueChange={(value) => setFormData({ ...formData, courseId: value })}
+                value={formData.courseid}
+                onValueChange={(value) => {
+                  console.log('Selected course ID:', value);
+                  setFormData(prev => ({
+                    ...prev,
+                    courseid: value
+                  }));
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a course" />
@@ -272,7 +286,7 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
                 <SelectContent>
                   {userCourses.map((course) => (
                     <SelectItem key={course.id} value={course.id}>
-                      {course.name}
+                      {course.name} ({course.id})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -325,8 +339,8 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
               <Input
                 id="startTime"
                 type="time"
-                value={formData.startTime}
-                onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                value={formData.starttime}
+                onChange={(e) => setFormData({ ...formData, starttime: e.target.value })}
               />
             </div>
             <div>
@@ -334,8 +348,8 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
               <Input
                 id="endTime"
                 type="time"
-                value={formData.endTime}
-                onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                value={formData.endtime}
+                onChange={(e) => setFormData({ ...formData, endtime: e.target.value })}
               />
             </div>
           </div>
@@ -369,8 +383,8 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
               <input
                 type="checkbox"
                 id="showResults"
-                checked={formData.showResults}
-                onChange={(e) => setFormData({ ...formData, showResults: e.target.checked })}
+                checked={formData.showresults}
+                onChange={(e) => setFormData({ ...formData, showresults: e.target.checked })}
                 className="w-4 h-4"
               />
               <Label htmlFor="showResults">Show results to students</Label>
@@ -379,8 +393,8 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
               <input
                 type="checkbox"
                 id="randomizeQuestions"
-                checked={formData.randomizeQuestions}
-                onChange={(e) => setFormData({ ...formData, randomizeQuestions: e.target.checked })}
+                checked={formData.randomizequestions}
+                onChange={(e) => setFormData({ ...formData, randomizequestions: e.target.checked })}
                 className="w-4 h-4"
               />
               <Label htmlFor="randomizeQuestions">Randomize question order</Label>
@@ -429,13 +443,13 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
           Cancel
         </Button>
         <div className="flex space-x-2">
-          <Button variant="outline" onClick={() => handleSave("draft")} disabled={!formData.name || !formData.courseId}>
+          <Button variant="outline" onClick={() => handleSave("draft")} disabled={!formData.name || !formData.courseid}>
             <Save className="h-4 w-4 mr-2" />
             Save as Draft
           </Button>
           <Button
             onClick={() => handleSave("published")}
-            disabled={!formData.name || !formData.courseId || questions.length === 0}
+            disabled={!formData.name || !formData.courseid || questions.length === 0}
           >
             <Eye className="h-4 w-4 mr-2" />
             Publish Exam

@@ -99,25 +99,25 @@ export function useSupabaseData() {
 
       // Load examSubmissions
       const { data: examSubmissions, error: examSubmissionsError } = await supabase
-        .from("examSubmissions")
+        .from("examsubmissions")
         .select("*");
       if (examSubmissionsError) throw examSubmissionsError;
 
       // Load gradeCategories
       const { data: gradeCategories, error: gradeCategoriesError } = await supabase
-        .from("gradeCategories")
+        .from("gradecategories")
         .select("*");
       if (gradeCategoriesError) throw gradeCategoriesError;
 
       // Load courseGrades
       const { data: courseGrades, error: courseGradesError } = await supabase
-        .from("courseGrades")
+        .from("coursegrades")
         .select("*");
       if (courseGradesError) throw courseGradesError;
 
       // Load gradeScales
       const { data: gradeScales, error: gradeScalesError } = await supabase
-        .from("gradeScales")
+        .from("gradescales")
         .select("*");
       if (gradeScalesError) throw gradeScalesError;
 
@@ -387,7 +387,7 @@ export function useSupabaseData() {
       setData((prev) => ({
         ...prev,
         exams: prev.exams.filter((e) => e.id !== id),
-        examSubmissions: prev.examSubmissions.filter((s) => s.examId !== id),
+        examSubmissions: prev.examSubmissions.filter((s) => s.examid !== id),
       }));
     } catch (err) {
       throw new Error(err instanceof Error ? err.message : "Failed to delete exam");
@@ -398,7 +398,7 @@ export function useSupabaseData() {
   const addExamSubmission = async (submissionData: Omit<ExamSubmission, "id">) => {
     try {
       const { data: newSubmission, error } = await supabase
-        .from("examSubmissions")
+        .from("examsubmissions")
         .insert([submissionData])
         .select()
         .single();
@@ -417,7 +417,7 @@ export function useSupabaseData() {
   const updateExamSubmission = async (id: string, submissionData: Partial<ExamSubmission>) => {
     try {
       const { data: updatedSubmission, error } = await supabase
-        .from("examSubmissions")
+        .from("examsubmissions")
         .update(submissionData)
         .eq("id", id)
         .select()

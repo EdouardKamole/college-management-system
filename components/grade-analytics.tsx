@@ -18,14 +18,14 @@ interface GradeAnalyticsProps {
 export function GradeAnalytics({ courses, grades, students, gradeScale }: GradeAnalyticsProps) {
   const analytics = useMemo(() => {
     const courseAnalytics = courses.map((course) => {
-      const courseGrades = grades.filter((g) => g.courseId === course.id)
-      const enrolledStudents = students.filter((s) => course.studentIds.includes(s.id))
+      const courseGrades = grades.filter((g) => g.courseid === course.id)
+      const enrolledStudents = students.filter((s) => course.studentids.includes(s.id))
 
       // Calculate student performance
       const studentPerformance = enrolledStudents.map((student) => {
-        const studentGrades = courseGrades.filter((g) => g.studentId === student.id)
+        const studentGrades = courseGrades.filter((g) => g.studentid === student.id)
         const totalScore = studentGrades.reduce((sum, g) => sum + g.score, 0)
-        const totalMaxScore = studentGrades.reduce((sum, g) => sum + g.maxScore, 0)
+        const totalMaxScore = studentGrades.reduce((sum, g) => sum + g.maxscore, 0)
         const percentage = totalMaxScore > 0 ? (totalScore / totalMaxScore) * 100 : 0
         const { letter } = calculateLetterGrade(percentage, gradeScale)
 
@@ -52,15 +52,15 @@ export function GradeAnalytics({ courses, grades, students, gradeScale }: GradeA
         const typeGrades = courseGrades.filter((g) => g.category === type)
         const avgScore =
           typeGrades.length > 0
-            ? typeGrades.reduce((sum, g) => sum + (g.score / g.maxScore) * 100, 0) / typeGrades.length
+            ? typeGrades.reduce((sum, g) => sum + (g.score / g.maxscore) * 100, 0) / typeGrades.length
             : 0
 
         return {
           type,
           count: typeGrades.length,
           averageScore: avgScore,
-          highestScore: typeGrades.length > 0 ? Math.max(...typeGrades.map((g) => (g.score / g.maxScore) * 100)) : 0,
-          lowestScore: typeGrades.length > 0 ? Math.min(...typeGrades.map((g) => (g.score / g.maxScore) * 100)) : 0,
+          highestScore: typeGrades.length > 0 ? Math.max(...typeGrades.map((g) => (g.score / g.maxscore) * 100)) : 0,
+          lowestScore: typeGrades.length > 0 ? Math.min(...typeGrades.map((g) => (g.score / g.maxscore) * 100)) : 0,
         }
       })
 
