@@ -43,7 +43,11 @@ export function Login() {
         setPin("")
       }
     } catch (err) {
-      setError("Login failed. Please try again.")
+      if (err instanceof Error) {
+        setError(err.message)
+      } else {
+        setError("An unexpected error occurred. Please try again.")
+      }
       setStep(1)
       setPin("")
     } finally {

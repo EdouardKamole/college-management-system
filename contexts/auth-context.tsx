@@ -1,8 +1,9 @@
 "use client"
 
 import type React from "react"
+import { type User } from "@/lib/data"
 import { createContext, useContext, useState, useEffect } from "react"
-import { type User, initialData } from "@/lib/data"
+import { supabase } from "@/lib/supabase"
 
 interface AuthContextType {
   user: User | null
@@ -18,30 +19,79 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("uafc-user")
-    if (savedUser) {
-      setUser(JSON.parse(savedUser))
+    const checkSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        if (error) {
+          console.error('Error getting session:', error)
+          setIsLoading(false)
+          return
+        }
+
+        if (session?.user?.id) {
+          // Fetch user data from database
+          const { data, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single()
+
+          if (userError) {
+            console.error('Error fetching user data:', userError)
+            setIsLoading(false)
+            return
+          }
+          setUser(data)
+        }
+        setIsLoading(false)
+      } catch (err) {
+        console.error('Unexpected error:', err)
+        setIsLoading(false)
+      }
     }
-    setIsLoading(false)
+    
+    checkSession()
   }, [])
 
   const login = async (username: string, password: string, pin: string): Promise<boolean> => {
-    const userData = JSON.parse(localStorage.getItem("uafc-data") || JSON.stringify(initialData))
-    const foundUser = userData.users.find(
-      (u: User) => u.username === username && u.password === password && u.pin === pin,
-    )
+    const { data: { user: authUser }, error: authError } = await supabase.auth.signInWithPassword({
+      email: username,
+      password: password
+    })
 
-    if (foundUser) {
-      setUser(foundUser)
-      localStorage.setItem("uafc-user", JSON.stringify(foundUser))
-      return true
+    if (authError) {
+      console.error('Auth error:', authError)
+      return false
+    }
+
+    if (authUser) {
+      // Verify PIN and get user data
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authUser.id)
+        .eq('pin', pin)
+        .single()
+
+      if (userError) {
+        console.error('User data error:', userError)
+        return false
+      }
+
+      if (userData) {
+        setUser(userData)
+        return true
+      }
     }
     return false
   }
 
-  const logout = () => {
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      console.error('Logout error:', error)
+    }
     setUser(null)
-    localStorage.removeItem("uafc-user")
   }
 
   return <AuthContext.Provider value={{ user, login, logout, isLoading }}>{children}</AuthContext.Provider>

@@ -1,84 +1,257 @@
-"use client"
+"use client";
 
-import { useAuth } from "@/contexts/auth-context"
-import { useData } from "@/hooks/use-data"
-import { useIsMobile } from "@/hooks/use-mobile"
-import { MobileDashboard } from "@/components/mobile-dashboard"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { BookOpen, Users, FileText, Calendar, TrendingUp, Award, AlertCircle } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context";
+import { useSupabaseData } from "@/hooks/use-supabase-data";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileDashboard } from "@/components/mobile-dashboard";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { BookOpen, Users, FileText, Calendar, TrendingUp, Award, AlertCircle } from "lucide-react";
 
 interface DashboardProps {
-  onModuleChange: (module: string) => void
+  onModuleChange: (module: string) => void;
+}
+
+interface DashboardStats {
+  // Admin stats
+  totalCourses?: number;
+  totalStudents?: number;
+  totalInstructors?: number;
+  totalExams?: number;
+  
+  // Instructor stats
+  myCourses?: number;
+  myStudents?: number;
+  myExams?: number;
+  pendingGrades?: number;
+  
+  // Student stats
+  enrolledCourses?: number;
+  totalGrades?: number;
+  averageGrade?: number;
+  attendanceRate?: number;
+}
+
+interface DashboardProps {
+  onModuleChange: (module: string) => void;
 }
 
 export function Dashboard({ onModuleChange }: DashboardProps) {
-  const { user } = useAuth()
-  const { data } = useData()
-  const isMobile = useIsMobile()
+  const { user } = useAuth();
+  const { data, loading, error, refetch } = useSupabaseData();
+  const [isLoading, setIsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const isMobile = useIsMobile();
+
+  // Set up real-time subscriptions
+  useEffect(() => {
+    if (!user) return;
+
+    // Subscribe to relevant tables
+    const channels = [
+      'courses',
+      'users',
+      'exams',
+      'grades',
+      'attendance'
+    ].map(table => 
+      supabase.channel(`${table}-changes`)
+        .on('postgres_changes', 
+          { 
+            event: '*', 
+            schema: 'public', 
+            table,
+            ...(user.role !== 'admin' ? { 
+              filter: `instructor_id=eq.${user.id}` 
+            } : {})
+          }, 
+          (payload) => {
+            console.log(`${table} update:`, payload);
+            refetch();
+          }
+        )
+        .subscribe()
+    );
+
+    return () => {
+      channels.forEach(channel => supabase.removeChannel(channel));
+    };
+  }, [user, refetch]);
+
+  // Calculate stats when data changes
+  useEffect(() => {
+    const calculateStats = () => {
+      if (!user || !data.courses || !data.users || !data.exams || !data.grades || !data.attendance) {
+        return null;
+      }
+
+      try {
+        let newStats: DashboardStats = {};
+
+        if (user.role === "admin") {
+          newStats = {
+            totalCourses: data.courses?.length || 0,
+            totalStudents: data.users.filter((u) => u.role === "student").length,
+            totalInstructors: data.users.filter((u) => u.role === "instructor").length,
+            totalExams: data.exams?.length || 0,
+          };
+        } else if (user.role === "instructor") {
+          const myCourses = data.courses.filter((c) => c.instructorId === user.id);
+          const myStudents = new Set(myCourses.flatMap((c) => c.studentIds || [])).size;
+          const myExams = data.exams.filter((e) =>
+            myCourses.some((c) => c.id === e.courseId)
+          );
+          
+          newStats = {
+            myCourses: myCourses.length,
+            myStudents,
+            myExams: myExams.length,
+            pendingGrades: data.grades.filter((g) =>
+              myExams.some((e) => e.id === g.examId && (!g.score || g.score === 0))
+            ).length,
+          };
+        } else {
+          const myCourses = data.courses.filter((c) =>
+            c.studentIds?.includes(user.id) || false
+          );
+          const myGrades = data.grades.filter((g) => g.studentId === user.id && g.score);
+          const myAttendance = data.attendance.filter(
+            (a) => a.studentId === user.id
+          );
+          const attendanceRate =
+            myAttendance.length > 0
+              ? (myAttendance.filter((a) => a.status === "present").length /
+                  myAttendance.length) *
+                100
+              : 0;
+                
+          const averageGrade = myGrades.length > 0
+            ? Math.round(
+                myGrades.reduce(
+                  (sum, g) => sum + (g.score / g.maxScore) * 100,
+                  0
+                ) / myGrades.length
+              )
+            : 0;
+
+          newStats = {
+            enrolledCourses: myCourses.length,
+            totalGrades: myGrades.length,
+            averageGrade,
+            attendanceRate: Math.round(attendanceRate),
+          };
+        }
+
+        setStats(newStats);
+        setStatsError(null);
+      } catch (err) {
+        console.error("Error calculating dashboard stats:", err);
+        setStatsError("Failed to load dashboard statistics. Please try refreshing the page.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    calculateStats();
+  }, [user, data]);
 
   // Use mobile dashboard on mobile devices
+  if (loading || isLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        <Skeleton className="h-8 w-64 mb-6" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error || statsError) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            {error || statsError || 'An unknown error occurred'}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   if (isMobile) {
-    return <MobileDashboard onModuleChange={onModuleChange} />
+    return <MobileDashboard onModuleChange={onModuleChange} />;
+  }
+  
+  if (!stats) {
+    return (
+      <div className="p-6">
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>No data available</AlertTitle>
+          <AlertDescription>
+            There is no data to display. Please check back later.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
   }
 
-  // Rest of the existing desktop dashboard code remains the same...
   const getGreeting = () => {
-    const hour = new Date().getHours()
-    if (hour < 12) return "Good Morning"
-    if (hour < 18) return "Good Afternoon"
-    return "Good Evening"
-  }
-
-  const getStats = () => {
-    if (user?.role === "admin") {
-      return {
-        totalCourses: data.courses.length,
-        totalStudents: data.users.filter((u) => u.role === "student").length,
-        totalInstructors: data.users.filter((u) => u.role === "instructor").length,
-        totalExams: data.exams.length,
-      }
-    } else if (user?.role === "instructor") {
-      const myCourses = data.courses.filter((c) => c.instructorId === user.id)
-      const myStudents = new Set(myCourses.flatMap((c) => c.studentIds)).size
-      const myExams = data.exams.filter((e) => myCourses.some((c) => c.id === e.courseId))
-      return {
-        myCourses: myCourses.length,
-        myStudents,
-        myExams: myExams.length,
-        pendingGrades: data.grades.filter((g) => myExams.some((e) => e.id === g.examId) && !g.remarks).length,
-      }
-    } else {
-      const myCourses = data.courses.filter((c) => c.studentIds.includes(user?.id || ""))
-      const myGrades = data.grades.filter((g) => g.studentId === user?.id)
-      const myAttendance = data.attendance.filter((a) => a.studentId === user?.id)
-      const attendanceRate =
-        myAttendance.length > 0
-          ? (myAttendance.filter((a) => a.status === "present").length / myAttendance.length) * 100
-          : 0
-      return {
-        enrolledCourses: myCourses.length,
-        totalGrades: myGrades.length,
-        averageGrade:
-          myGrades.length > 0
-            ? Math.round(myGrades.reduce((sum, g) => sum + (g.score / g.maxScore) * 100, 0) / myGrades.length)
-            : 0,
-        attendanceRate: Math.round(attendanceRate),
-      }
-    }
-  }
-
-  const stats = getStats()
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 18) return "Good Afternoon";
+    return "Good Evening";
+  };
 
   const quickLinks = [
-    { label: "Manage Courses", module: "courses", icon: BookOpen, roles: ["admin"] },
-    { label: "View Courses", module: "courses", icon: BookOpen, roles: ["instructor", "student"] },
-    { label: "Examinations", module: "exams", icon: FileText, roles: ["admin", "instructor", "student"] },
-    { label: "Grade Management", module: "grades", icon: Award, roles: ["admin", "instructor"] },
+    {
+      label: "Manage Courses",
+      module: "courses",
+      icon: BookOpen,
+      roles: ["admin"],
+    },
+    {
+      label: "View Courses",
+      module: "courses",
+      icon: BookOpen,
+      roles: ["instructor", "student"],
+    },
+    {
+      label: "Examinations",
+      module: "exams",
+      icon: FileText,
+      roles: ["admin", "instructor", "student"],
+    },
+    {
+      label: "Grade Management",
+      module: "grades",
+      icon: Award,
+      roles: ["admin", "instructor"],
+    },
     { label: "View Grades", module: "grades", icon: Award, roles: ["student"] },
-    { label: "Attendance", module: "attendance", icon: Users, roles: ["admin", "instructor", "student"] },
-    { label: "Schedules", module: "schedules", icon: Calendar, roles: ["admin", "instructor", "student"] },
-  ].filter((link) => link.roles.includes(user?.role || ""))
+    {
+      label: "Attendance",
+      module: "attendance",
+      icon: Users,
+      roles: ["admin", "instructor", "student"],
+    },
+    {
+      label: "Schedules",
+      module: "schedules",
+      icon: Calendar,
+      roles: ["admin", "instructor", "student"],
+    },
+  ].filter((link) => link.roles.includes(user?.role || ""));
 
   return (
     <div className="p-6 space-y-6">
@@ -87,7 +260,9 @@ export function Dashboard({ onModuleChange }: DashboardProps) {
         <h1 className="text-2xl font-bold mb-2">
           {getGreeting()}, {user?.name}!
         </h1>
-        <p className="text-blue-100">Welcome to the Uganda Air Force College Management System</p>
+        <p className="text-blue-100">
+          Welcome to the Uganda Air Force College Management System
+        </p>
       </div>
 
       {/* Stats Cards */}
@@ -96,7 +271,9 @@ export function Dashboard({ onModuleChange }: DashboardProps) {
           <>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Courses</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Total Courses
+                </CardTitle>
                 <BookOpen className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -106,27 +283,39 @@ export function Dashboard({ onModuleChange }: DashboardProps) {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Total Students
+                </CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.totalStudents}</div>
-                <p className="text-xs text-muted-foreground">Enrolled students</p>
+                <p className="text-xs text-muted-foreground">
+                  Enrolled students
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Instructors</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Instructors
+                </CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.totalInstructors}</div>
-                <p className="text-xs text-muted-foreground">Active instructors</p>
+                <div className="text-2xl font-bold">
+                  {stats.totalInstructors}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Active instructors
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Exams</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Total Exams
+                </CardTitle>
                 <FileText className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -141,17 +330,23 @@ export function Dashboard({ onModuleChange }: DashboardProps) {
           <>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">My Courses</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  My Courses
+                </CardTitle>
                 <BookOpen className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.myCourses}</div>
-                <p className="text-xs text-muted-foreground">Assigned courses</p>
+                <p className="text-xs text-muted-foreground">
+                  Assigned courses
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">My Students</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  My Students
+                </CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -171,7 +366,9 @@ export function Dashboard({ onModuleChange }: DashboardProps) {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending Grades</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Pending Grades
+                </CardTitle>
                 <AlertCircle className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -186,37 +383,55 @@ export function Dashboard({ onModuleChange }: DashboardProps) {
           <>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Enrolled Courses</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Enrolled Courses
+                </CardTitle>
                 <BookOpen className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.enrolledCourses}</div>
-                <p className="text-xs text-muted-foreground">Active enrollments</p>
+                <div className="text-2xl font-bold">
+                  {stats.enrolledCourses}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Active enrollments
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Average Grade</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Average Grade
+                </CardTitle>
                 <Award className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stats.averageGrade}%</div>
-                <p className="text-xs text-muted-foreground">Overall performance</p>
+                <p className="text-xs text-muted-foreground">
+                  Overall performance
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Attendance Rate
+                </CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.attendanceRate}%</div>
-                <p className="text-xs text-muted-foreground">Class attendance</p>
+                <div className="text-2xl font-bold">
+                  {stats.attendanceRate}%
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Class attendance
+                </p>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Grades</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Total Grades
+                </CardTitle>
                 <FileText className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -237,7 +452,7 @@ export function Dashboard({ onModuleChange }: DashboardProps) {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {quickLinks.map((link) => {
-              const Icon = link.icon
+              const Icon = link.icon;
               return (
                 <Button
                   key={link.module}
@@ -248,7 +463,7 @@ export function Dashboard({ onModuleChange }: DashboardProps) {
                   <Icon className="h-6 w-6" />
                   <span className="text-sm">{link.label}</span>
                 </Button>
-              )
+              );
             })}
           </div>
         </CardContent>
@@ -265,14 +480,18 @@ export function Dashboard({ onModuleChange }: DashboardProps) {
             <div className="flex items-center space-x-4">
               <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
               <div className="flex-1">
-                <p className="text-sm font-medium">System updated successfully</p>
+                <p className="text-sm font-medium">
+                  System updated successfully
+                </p>
                 <p className="text-xs text-muted-foreground">2 hours ago</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               <div className="w-2 h-2 bg-green-600 rounded-full"></div>
               <div className="flex-1">
-                <p className="text-sm font-medium">New course materials uploaded</p>
+                <p className="text-sm font-medium">
+                  New course materials uploaded
+                </p>
                 <p className="text-xs text-muted-foreground">1 day ago</p>
               </div>
             </div>
@@ -287,5 +506,5 @@ export function Dashboard({ onModuleChange }: DashboardProps) {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

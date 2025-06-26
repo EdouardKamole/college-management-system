@@ -1,3 +1,5 @@
+import { format as formatDateFns } from 'date-fns';
+
 export interface CalendarEvent {
   id: string
   title: string
@@ -21,15 +23,15 @@ export function getFirstDayOfMonth(year: number, month: number): number {
 }
 
 export function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0]
+  return formatDateFns(date, 'yyyy-MM-dd');
 }
 
 export function formatTime(time: string): string {
-  const [hours, minutes] = time.split(":")
-  const hour = Number.parseInt(hours)
-  const ampm = hour >= 12 ? "PM" : "AM"
-  const displayHour = hour % 12 || 12
-  return `${displayHour}:${minutes} ${ampm}`
+  const [hours, minutes] = time.split(":");
+  const hour = Number.parseInt(hours);
+  const date = new Date();
+  date.setHours(hour, Number.parseInt(minutes) || 0);
+  return formatDateFns(date, 'h:mm a');
 }
 
 export function parseSchedule(schedule: string): { days: string[]; startTime: string; endTime: string } {

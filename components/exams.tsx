@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { useData } from "@/hooks/use-data"
+import { useSupabaseData } from "@/hooks/use-supabase-data"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -16,7 +16,15 @@ import type { Exam, ExamSubmission } from "@/lib/data"
 
 export function Exams() {
   const { user } = useAuth()
-  const { data, updateData } = useData()
+  const {
+    data,
+    addExam,
+    updateExam,
+    deleteExam,
+    addExamSubmission,
+    updateExamSubmission,
+    deleteExamSubmission,
+  } = useSupabaseData()
   const [activeTab, setActiveTab] = useState("overview")
   const [isCreatorOpen, setIsCreatorOpen] = useState(false)
   const [isTakerOpen, setIsTakerOpen] = useState(false)
@@ -67,13 +75,12 @@ export function Exams() {
     setIsCreatorOpen(true)
   }
 
-  const handleDeleteExam = (examId: string) => {
-    const updatedExams = data.exams.filter((e) => e.id !== examId)
-    const updatedSubmissions = data.examSubmissions.filter((s) => s.examId !== examId)
-    updateData({
-      exams: updatedExams,
-      examSubmissions: updatedSubmissions,
-    })
+  const handleDeleteExam = async (examId: string) => {
+    try {
+      await deleteExam(examId)
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   const handleTakeExam = (exam: Exam) => {
@@ -413,10 +420,9 @@ export function Exams() {
             exam={editingExam}
             onSave={(exam) => {
               if (editingExam) {
-                const updatedExams = data.exams.map((e) => (e.id === editingExam.id ? exam : e))
-                updateData({ exams: updatedExams })
+                updateExam(exam)
               } else {
-                updateData({ exams: [...data.exams, exam] })
+                addExam(exam)
               }
               setIsCreatorOpen(false)
             }}
@@ -436,7 +442,7 @@ export function Exams() {
             <ExamTaker
               exam={selectedExam}
               onSubmit={(submission) => {
-                updateData({ examSubmissions: [...data.examSubmissions, submission] })
+                addExamSubmission(submission)
                 setIsTakerOpen(false)
               }}
               onCancel={() => setIsTakerOpen(false)}
