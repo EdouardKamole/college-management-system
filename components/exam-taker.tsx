@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,6 +19,19 @@ interface ExamTakerProps {
 }
 
 export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
+  // Early return if no exam or questions
+  if (!exam || !exam.questions?.length) {
+    return (
+      <div className="p-6 text-center">
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            No questions available for this exam. Please contact your instructor.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
   const { user } = useAuth()
   const [answers, setAnswers] = useState<{ [questionId: string]: string | number }>({})
   const [currentQuestion, setCurrentQuestion] = useState(0)
@@ -28,26 +41,89 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
   const startTimeRef = useRef(new Date().toISOString())
   const intervalRef = useRef<NodeJS.Timeout>()
 
-  const questions = exam.randomizeQuestions ? [...exam.questions].sort(() => Math.random() - 0.5) : exam.questions
+  const questions = exam.randomizequestions ? [...exam.questions].sort(() => Math.random() - 0.5) : exam.questions
 
-  useEffect(() => {
-    // Start the timer
-    intervalRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          handleAutoSubmit()
-          return 0
+  const calculateScore = useCallback(() => {
+    let score = 0;
+    let maxScore = 0;
+
+    if (!questions?.length) return { score: 0, maxScore: 0 };
+
+    questions.forEach((question) => {
+      const points = Number(question.points) || 0;
+      maxScore += points;
+      const answer = answers[question.id];
+
+      if (answer !== undefined && answer !== null && answer !== '') {
+        if (question.type === "multiple-choice" || question.type === "true-false") {
+          // Handle both 'correctanswer' and 'correctAnswer' for backward compatibility
+          const correctAnswer = 'correctAnswer' in question ? question.correctAnswer : question.correctanswer;
+          if (answer === correctAnswer) {
+            score += points;
+          }
         }
-        return prev - 1
-      })
-    }, 1000)
+      }
+      // Short answer and essay questions need manual grading
+    });
+
+    return { score, maxScore };
+  }, [questions, answers]);
+
+  // Memoize handleSubmit to prevent unnecessary re-renders
+  const handleSubmit = useCallback((isAutoSubmit = false) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    const { score, maxScore } = calculateScore();
+    const hasManualGrading = questions.some((q) => (q.type === "short-answer" || q.type === "essay") && answers[q.id]);
+
+    const submission: ExamSubmission = {
+      id: Date.now().toString(),
+      examid: exam.id,
+      studentid: user?.id || "",
+      submissiondate: new Date().toISOString(),
+      answers,
+      starttime: startTimeRef.current,
+      submittime: new Date().toISOString(),
+      timespent: exam.duration * 60 - timeLeft,
+      status: hasManualGrading ? "submitted" : "graded",
+      score: hasManualGrading ? undefined : score,
+      maxscore: exam.totalpoints,
+      autograded: !hasManualGrading,
+      fileurl: ""
+    };
+
+    onSubmit(submission);
+  }, [isSubmitting, answers, timeLeft, exam, user, onSubmit, calculateScore]);
+
+  // Memoize handleAutoSubmit to prevent unnecessary re-renders
+  const handleAutoSubmit = useCallback(() => {
+    if (isSubmitting) return;
+    handleSubmit(true);
+  }, [isSubmitting, handleSubmit]);
+
+  // Handle timer effect
+  useEffect(() => {
+    if (!exam.questions?.length) {
+      console.error('No questions found in exam');
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          handleAutoSubmit();
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-    }
-  }, [])
+      clearInterval(timer);
+    };
+  }, [handleAutoSubmit, exam.questions?.length]);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600)
@@ -64,53 +140,7 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
     setAnswers((prev) => ({ ...prev, [questionId]: answer }))
   }
 
-  const calculateScore = () => {
-    let score = 0
-    let maxScore = 0
-
-    questions.forEach((question) => {
-      maxScore += question.points
-      const answer = answers[question.id]
-
-      if (question.type === "multiple-choice" || question.type === "true-false") {
-        if (answer === question.correctAnswer) {
-          score += question.points
-        }
-      }
-      // Short answer and essay questions need manual grading
-    })
-
-    return { score, maxScore }
-  }
-
-  const handleAutoSubmit = () => {
-    if (isSubmitting) return
-    handleSubmit(true)
-  }
-
-  const handleSubmit = (isAutoSubmit = false) => {
-    if (isSubmitting) return
-    setIsSubmitting(true)
-
-    const { score, maxScore } = calculateScore()
-    const hasManualGrading = questions.some((q) => (q.type === "short-answer" || q.type === "essay") && answers[q.id])
-
-    const submission: ExamSubmission = {
-      id: Date.now().toString(),
-      examId: exam.id,
-      studentId: user?.id || "",
-      answers,
-      startTime: startTimeRef.current,
-      submitTime: new Date().toISOString(),
-      timeSpent: exam.duration * 60 - timeLeft,
-      status: hasManualGrading ? "submitted" : "graded",
-      score: hasManualGrading ? undefined : score,
-      maxScore: exam.totalPoints,
-      autoGraded: !hasManualGrading,
-    }
-
-    onSubmit(submission)
-  }
+  // handleSubmit is now memoized and moved up with the other handlers
 
   const getAnsweredCount = () => {
     return Object.keys(answers).filter((key) => answers[key] !== undefined && answers[key] !== "").length
@@ -220,7 +250,7 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
           <Button variant="outline" onClick={() => setShowConfirmSubmit(false)}>
             Continue Exam
           </Button>
-          <Button onClick={() => handleSubmit()} disabled={isSubmitting}>
+          <Button onClick={() => handleSubmit(false)} disabled={isSubmitting}>
             {isSubmitting ? "Submitting..." : "Submit Exam"}
           </Button>
         </div>

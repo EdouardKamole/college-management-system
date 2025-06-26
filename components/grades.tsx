@@ -1,10 +1,8 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useMemo } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { supabase } from "@/lib/supabase"
-import { toast } from "sonner"
-import { useSupabaseData } from "@/hooks/use-supabase-data"
+import { useData } from "@/hooks/use-data"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -24,13 +22,11 @@ import type { Grade } from "@/lib/data"
 
 export function Grades() {
   const { user } = useAuth()
-  const { data, addGrade, updateGrade, deleteGrade, refetch } = useSupabaseData()
+  const { data, updateData } = useData()
   const [activeTab, setActiveTab] = useState("overview")
   const [selectedCourse, setSelectedCourse] = useState<string>("")
   const [isAddGradeOpen, setIsAddGradeOpen] = useState(false)
   const [isTranscriptOpen, setIsTranscriptOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   const [gradeForm, setGradeForm] = useState({
     studentId: "",
@@ -45,218 +41,183 @@ export function Grades() {
   })
 
   const canManageGrades = user?.role === "admin" || user?.role === "instructor"
-  const defaultGradeScale = data.gradeScales.find((gs) => gs.id === "default")!
+  const defaultGradeScale = data?.gradeScales?.find((gs) => gs.id === "default") || {
+    id: "default",
+    name: "Default Scale",
+    scale: [
+      { letter: "A", minpercentage: 90, maxpercentage: 100, gpapoints: 4.0 },
+      { letter: "B", minpercentage: 80, maxpercentage: 89, gpapoints: 3.0 },
+      { letter: "C", minpercentage: 70, maxpercentage: 79, gpapoints: 2.0 },
+      { letter: "D", minpercentage: 60, maxpercentage: 69, gpapoints: 1.0 },
+      { letter: "F", minpercentage: 0, maxpercentage: 59, gpapoints: 0.0 }
+    ]
+  }
 
-  // Filter courses based on user role with null checks
+  // Filter courses based on user role
   const userCourses = useMemo(() => {
+    // Return empty array if data or courses is not loaded yet
+    if (!data?.courses) return [];
+    
     try {
-      if (!data.courses) return []
+      if (user?.role === "admin") return [...(data.courses || [])];
       
-      if (user?.role === "admin") return data.courses
-      if (user?.role === "instructor") 
-        return data.courses.filter((c) => c.instructorId === user.id)
-      if (user?.role === "student") 
-        return data.courses.filter((c) => c.studentIds?.includes(user.id) || false)
+      if (user?.role === "instructor") {
+        return (data.courses || []).filter((c) => c?.instructorid === user?.id);
+      }
       
-      return []
-    } catch (err) {
-      console.error("Error filtering courses:", err)
-      setError("Failed to load courses. Please refresh the page.")
-      return []
+      if (user?.role === "student") {
+        return (data.courses || []).filter((c) => 
+          Array.isArray(c?.studentids) && c.studentids.includes(user?.id)
+        );
+      }
+      
+      return [];
+    } catch (error) {
+      console.error("Error filtering user courses:", error);
+      return [];
     }
-  }, [data.courses, user])
+  }, [data?.courses, user])
 
-  // Calculate student's overall GPA with error handling
+  // Calculate student's overall GPA
   const studentGPA = useMemo(() => {
+    if (user?.role !== "student") return null
+    // Add null check for data.courseGrades
+    if (!data?.courseGrades) return 0
     try {
-      if (user?.role !== "student") return null
-      if (!data.courseGrades) return null
-      
-      const studentCourseGrades = data.courseGrades.filter((cg) => cg.studentId === user.id)
+      const studentCourseGrades = data.courseGrades.filter((cg) => cg.studentid === user.id)
       return calculateGPA(studentCourseGrades)
-    } catch (err) {
-      console.error("Error calculating GPA:", err)
-      setError("Failed to calculate GPA. Please try again.")
-      return null
+    } catch (error) {
+      console.error("Error calculating student GPA:", error)
+      return 0
     }
   }, [data.courseGrades, user])
 
-  // Get grade statistics with error handling
+  // Get grade statistics
   const gradeStats = useMemo(() => {
+    // Initialize default values
+    const defaultStats = user?.role === "student" 
+      ? { totalGrades: 0, averageScore: 0, coursesEnrolled: 0, gpa: 0 }
+      : { coursesTeaching: 0, totalStudents: 0, totalGrades: 0, pendingGrades: 0 };
+
+    if (!data) return defaultStats;
+
     try {
       if (user?.role === "student") {
-        const studentGrades = data.grades?.filter((g) => g.studentId === user.id) || []
-        const totalGrades = studentGrades.length
+        const studentGrades = (data.grades || []).filter((g) => g.studentid === user.id);
+        const totalGrades = studentGrades.length;
         const averageScore =
-          totalGrades > 0 ? studentGrades.reduce((sum, g) => sum + (g.score / g.maxScore) * 100, 0) / totalGrades : 0
+          totalGrades > 0 
+            ? studentGrades.reduce((sum, g) => sum + (g.score / g.maxscore) * 100, 0) / totalGrades 
+            : 0;
 
         return {
           totalGrades,
           averageScore: Math.round(averageScore * 100) / 100,
           coursesEnrolled: userCourses.length,
           gpa: studentGPA || 0,
-        }
+        };
       } else {
-        const instructorCourses = userCourses || []
-        const totalStudents = new Set(instructorCourses.flatMap((c) => c.studentIds || [])).size
-        const totalGrades = data.grades?.filter((g) => 
-          instructorCourses.some((c) => c.id === g.courseId)
-        ).length || 0
+        const instructorCourses = userCourses || [];
+        const totalStudents = new Set(instructorCourses.flatMap((c) => c.studentids || [])).size;
+        const totalGrades = (data.grades || []).filter((g) => 
+          instructorCourses.some((c) => c.id === g.courseid)
+        ).length;
 
         return {
           coursesTeaching: instructorCourses.length,
           totalStudents,
           totalGrades,
-          pendingGrades: data.examSubmissions?.filter(
+          pendingGrades: (data.examSubmissions || []).filter(
             (s) =>
               s.status === "submitted" &&
-              instructorCourses.some(
-                (c) => data.exams?.find((e) => e.id === s.examId)?.courseId === c.id
-              )
-          ).length || 0,
-        }
+              instructorCourses.some((c) => 
+                (data.exams || []).find((e) => e.id === s.examid)?.courseid === c.id
+              ),
+          ).length,
+        };
       }
-    } catch (err) {
-      console.error("Error calculating grade stats:", err)
-      setError("Failed to load grade statistics. Please try again.")
-      return {
-        totalGrades: 0,
-        averageScore: 0,
-        coursesEnrolled: 0,
-        gpa: 0,
-        coursesTeaching: 0,
-        totalStudents: 0,
-        pendingGrades: 0,
-      }
+    } catch (error) {
+      console.error("Error calculating grade stats:", error);
+      return defaultStats;
     }
   }, [data, user, userCourses, studentGPA])
 
-  // Set up real-time subscription for grades
-  useEffect(() => {
-    if (!user) return
-
-    const subscription = supabase
-      .channel('grades-changes')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'grades',
-          filter: user.role === 'student' 
-            ? `student_id=eq.${user.id}`
-            : undefined
-        }, 
-        (payload) => {
-          console.log('Grades update:', payload)
-          refetch()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(subscription)
+  const handleAddGrade = () => {
+    if (!gradeForm.studentId || !gradeForm.name || !gradeForm.score || !gradeForm.maxScore) {
+      alert("Please fill in all required fields")
+      return
     }
-  }, [user, refetch])
 
-  const handleAddGrade = async () => {
-    try {
-      if (!gradeForm.studentId || !gradeForm.name || !gradeForm.score || !gradeForm.maxScore || !selectedCourse) {
-        toast.error("Please fill in all required fields")
-        return
-      }
-      
-      setIsLoading(true)
-      setError(null)
-
-      const newGrade: Omit<Grade, "id"> = {
-        studentId: gradeForm.studentId,
-        courseId: selectedCourse,
-        category: gradeForm.category || "assignment",
-        name: gradeForm.name,
-        score: Number(gradeForm.score),
-        maxScore: Number(gradeForm.maxScore),
-        weight: Number(gradeForm.weight) || 1,
-        date: new Date().toISOString(),
-        feedback: gradeForm.feedback || "",
-        late: gradeForm.late,
-        excused: gradeForm.excused,
-      }
-      
-      const { error } = await addGrade(newGrade)
-
-      if (error) throw error
-      
-      toast.success("Grade added successfully")
-      setIsAddGradeOpen(false)
-      setGradeForm({
-        studentId: "",
-        category: "",
-        name: "",
-        score: "",
-        maxScore: "",
-        weight: "1",
-        feedback: "",
-        late: false,
-        excused: false,
-      })
-    } catch (error) {
-      console.error("Error adding grade:", error)
-      setError(error instanceof Error ? error.message : "Failed to add grade. Please try again.")
-      toast.error("Failed to add grade")
-    } finally {
-      setIsLoading(false)
+    const newGrade: Grade = {
+      id: Date.now().toString(),
+      studentid: gradeForm.studentId,
+      courseid: selectedCourse,
+      category: gradeForm.category as any,
+      name: gradeForm.name,
+      score: Number.parseFloat(gradeForm.score),
+      maxscore: Number.parseFloat(gradeForm.maxScore),
+      weight: Number.parseFloat(gradeForm.weight),
+      date: new Date().toISOString(),
+      // gradedBy: user?.id || "",
+      feedback: gradeForm.feedback,
+      late: gradeForm.late,
+      excused: gradeForm.excused,
     }
+
+    updateData({ grades: [...data.grades, newGrade] })
+    setGradeForm({
+      studentId: "",
+      category: "",
+      name: "",
+      score: "",
+      maxScore: "",
+      weight: "1",
+      feedback: "",
+      late: false,
+      excused: false,
+    })
+    setIsAddGradeOpen(false)
   }
 
   const exportGrades = () => {
-    try {
-      if (!selectedCourse) {
-        alert("Please select a course first")
-        return
-      }
+    if (!selectedCourse) return
 
-      const courseGrades = data.grades.filter((g) => g.courseId === selectedCourse)
-      const course = data.courses.find((c) => c.id === selectedCourse)
+    const courseGrades = data.grades.filter((g) => g.courseid === selectedCourse)
+    const course = data.courses.find((c) => c.id === selectedCourse)
 
-      if (courseGrades.length === 0) {
-        alert("No grades to export for this course")
-        return
-      }
-
-      const csvContent = [
-        ["Student ID", "Student Name", "Assignment", "Category", "Score", "Max Score", "Percentage", "Date", "Feedback"],
-        ...courseGrades.map((grade) => {
-          const student = data.users.find((u) => u.id === grade.studentId)
-          const percentage = ((grade.score / grade.maxScore) * 100).toFixed(2)
-          return [
-            grade.studentId,
-            student?.name || "Unknown",
-            grade.name,
-            grade.category,
-            grade.score.toString(),
-            grade.maxScore.toString(),
-            `${percentage}%`,
-            new Date(grade.date).toLocaleDateString(),
-            grade.feedback || "",
-          ]
-        }),
-      ]
-        .map((row) => row.map((cell) => `"${cell}"`).join(","))
-        .join("\n")
-
-      const blob = new Blob([csvContent], { type: "text/csv" })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `${course?.name || "course"}_grades.csv`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error("Error exporting grades:", error)
-      alert("Failed to export grades. Please try again.")
+    if (courseGrades.length === 0) {
+      alert("No grades to export for this course")
+      return
     }
+
+    const csvContent = [
+      ["Student ID", "Student Name", "Assignment", "Category", "Score", "Max Score", "Percentage", "Date", "Feedback"],
+      ...courseGrades.map((grade) => {
+        const student = data.users.find((u) => u.id === grade.studentid)
+        const percentage = ((grade.score / grade.maxscore) * 100).toFixed(2)
+        return [
+          grade.studentid,
+          student?.name || "Unknown",
+          grade.name,
+          grade.category,
+          grade.score.toString(),
+          grade.maxscore.toString(),
+          `${percentage}%`,
+          new Date(grade.date).toLocaleDateString(),
+          grade.feedback || "",
+        ]
+      }),
+    ]
+      .map((row) => row.map((cell) => `"${cell}"`).join(","))
+      .join("\n")
+
+    const blob = new Blob([csvContent], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${course?.name || "course"}_grades.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -302,7 +263,7 @@ export function Grades() {
                     <Calculator className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{gradeStats.gpa?.toFixed(2) || 'N/A'}</div>
+                    <div className="text-2xl font-bold">{gradeStats?.gpa?.toFixed(2) || '0.00'}</div>
                     <p className="text-xs text-muted-foreground">4.0 Scale</p>
                   </CardContent>
                 </Card>
@@ -400,10 +361,10 @@ export function Grades() {
             <CardContent>
               <div className="space-y-4">
                 {userCourses.map((course) => {
-                  const courseCategories = data.gradeCategories.filter((gc) => gc.courseId === course.id)
+                  const courseCategories = data.gradeCategories.filter((gc) => gc.courseid === course.id)
 
                   if (user?.role === "student") {
-                    const studentGrades = data.grades.filter((g) => g.courseId === course.id && g.studentId === user.id)
+                    const studentGrades = data.grades.filter((g) => g.courseid === course.id && g.studentid === user.id)
                     const { percentage } = calculateCourseGrade(studentGrades, courseCategories, course.id)
                     const { letter } = calculateLetterGrade(percentage, defaultGradeScale)
 
@@ -429,11 +390,11 @@ export function Grades() {
                       </div>
                     )
                   } else {
-                    const courseGrades = data.grades.filter((g) => g.courseId === course.id)
-                    const studentCount = course.studentIds.length
+                    const courseGrades = data.grades.filter((g) => g.courseid === course.id)
+                    const studentCount = course.studentids.length
                     const averageGrade =
                       courseGrades.length > 0
-                        ? courseGrades.reduce((sum, g) => sum + (g.score / g.maxScore) * 100, 0) / courseGrades.length
+                        ? courseGrades.reduce((sum, g) => sum + (g.score / g.maxscore) * 100, 0) / courseGrades.length
                         : 0
 
                     return (
@@ -473,8 +434,8 @@ export function Grades() {
           <TabsContent value="my-grades" className="space-y-6">
             <div className="space-y-6">
               {userCourses.map((course) => {
-                const studentGrades = data.grades.filter((g) => g.courseId === course.id && g.studentId === user.id)
-                const courseCategories = data.gradeCategories.filter((gc) => gc.courseId === course.id)
+                const studentGrades = data.grades.filter((g) => g.courseid === course.id && g.studentid === user.id)
+                const courseCategories = data.gradeCategories.filter((gc) => gc.courseid === course.id)
                 const { percentage, breakdown } = calculateCourseGrade(studentGrades, courseCategories, course.id)
                 const { letter } = calculateLetterGrade(percentage, defaultGradeScale)
 
@@ -563,10 +524,10 @@ export function Grades() {
                                 </div>
                                 <div className="text-right">
                                   <div className="font-bold">
-                                    {grade.score}/{grade.maxScore}
+                                    {grade.score}/{grade.maxscore}
                                   </div>
                                   <div className="text-sm text-muted-foreground">
-                                    {((grade.score / grade.maxScore) * 100).toFixed(1)}%
+                                    {((grade.score / grade.maxscore) * 100).toFixed(1)}%
                                   </div>
                                 </div>
                               </div>
@@ -616,11 +577,13 @@ export function Grades() {
                   categories={data.gradeCategories}
                   students={data.users.filter((u) => u.role === "student")}
                   gradeScale={defaultGradeScale}
-                  onUpdateGrade={async (gradeId, updates) => {
-                    await updateGrade(gradeId, updates)
+                  onUpdateGrade={(gradeId, updates) => {
+                    const updatedGrades = data.grades.map((g) => (g.id === gradeId ? { ...g, ...updates } : g))
+                    updateData({ grades: updatedGrades })
                   }}
                   onDeleteGrade={(gradeId) => {
-                    deleteGrade(gradeId)
+                    const updatedGrades = data.grades.filter((g) => g.id !== gradeId)
+                    updateData({ grades: updatedGrades })
                   }}
                 />
               )}
@@ -645,21 +608,8 @@ export function Grades() {
             courseGrades={data.courseGrades}
             gradeScale={defaultGradeScale}
             currentUser={user}
-            onGenerateTranscript={async (transcript) => {
-              try {
-                const { error } = await supabase
-                  .from("transcripts")
-                  .insert([transcript])
-                
-                if (error) {
-                  throw error
-                }
-                await refetch()
-                alert("Transcript generated successfully!")
-              } catch (error) {
-                console.error("Error generating transcript:", error)
-                alert("Failed to generate transcript. Please try again.")
-              }
+            onGenerateTranscript={(transcript) => {
+              updateData({ transcripts: [...data.transcripts, transcript] })
             }}
           />
         </TabsContent>
@@ -702,10 +652,10 @@ export function Grades() {
                     {selectedCourse &&
                       data.courses
                         .find((c) => c.id === selectedCourse)
-                        ?.studentIds.map((studentId) => {
-                          const student = data.users.find((u) => u.id === studentId)
+                        ?.studentids.map((studentid) => {
+                          const student = data.users.find((u) => u.id === studentid)
                           return (
-                            <SelectItem key={studentId} value={studentId}>
+                            <SelectItem key={studentid} value={studentid}>
                               {student?.name}
                             </SelectItem>
                           )

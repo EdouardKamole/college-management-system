@@ -120,11 +120,16 @@ export interface ExamSubmission {
   examid: string;
   studentid: string;
   submissiondate: string;
-  fileurl: string;
+  fileurl?: string;
   marksawarded?: number;
   score?: number;
   maxscore?: number;
   status: 'in-progress' | 'submitted' | 'graded';
+  answers?: Record<string, any>;
+  starttime?: string;
+  submittime?: string;
+  timespent?: number;
+  autograded?: boolean;
 }
 
 export interface GradeCategory {

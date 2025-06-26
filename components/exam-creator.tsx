@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { v4 as uuidv4 } from "uuid"
 import { useAuth } from "@/contexts/auth-context"
-import { useData } from "@/hooks/use-data"
+import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Trash2, GripVertical, Save, Eye } from "lucide-react"
-import type { Exam, Question } from "@/lib/data"
+import type { Exam, Question, Course } from "@/lib/data"
 
 interface ExamCreatorProps {
   exam?: Exam | null
@@ -21,7 +22,9 @@ interface ExamCreatorProps {
 
 export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
   const { user } = useAuth()
-  const { data } = useData()
+  const [courses, setCourses] = useState<Course[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState<Omit<Exam, 'id' | 'questions'> & { questions: Question[] }>({
     name: "",
     description: "",
@@ -42,7 +45,35 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
   })
   const [questions, setQuestions] = useState<Question[]>([])
 
-  const userCourses = data.courses.filter((course) => user?.role === "admin" || course.instructorid === user?.id)
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setLoading(true)
+        let query = supabase.from('courses').select('*')
+        
+        if (user?.role === 'instructor') {
+          query = query.eq('instructorid', user.id)
+        }
+        
+        const { data: courses, error } = await query
+        
+        if (error) throw error
+        
+        setCourses(courses || [])
+      } catch (err) {
+        console.error('Error fetching courses:', err)
+        setError('Failed to load courses')
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchCourses()
+  }, [user])
+  
+  const userCourses = courses.filter((course) => 
+    user?.role === "admin" || course.instructorid === user?.id || user?.role === "instructor"
+  )
 
   useEffect(() => {
     if (exam) {
@@ -104,23 +135,26 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
     return questions.reduce((sum, q) => sum + q.points, 0)
   }
 
-  const handleSave = (status: "draft" | "published") => {
+  const handleSave = async (status: "draft" | "published") => {
     if (!formData.name || !formData.courseid || questions.length === 0) {
       alert("Please fill in all required fields and add at least one question.")
       return
     }
 
-    const examData: Exam = {
-      id: exam?.id || Date.now().toString(),
-      ...formData,
-      status,
-      questions,
-      totalpoints: calculateTotalPoints(),
-      createdby: user?.id || "",
-      createdat: exam?.createdat || new Date().toISOString(),
+    try {
+      const examData: Exam = {
+        id: exam?.id || uuidv4(),
+        ...formData,
+        status,
+        questions,
+        totalpoints: calculateTotalPoints(),
+        createdby: user?.id || "",
+        createdat: new Date().toISOString(),
+      }
+      onSave(examData)
+    } catch (error) {
+      console.error("Error saving exam:", error)
     }
-
-    onSave(examData)
   }
 
   const renderQuestionEditor = (question: Question, index: number) => {

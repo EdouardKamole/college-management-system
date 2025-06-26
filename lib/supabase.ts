@@ -39,6 +39,54 @@ export interface Database {
           email?: string
         }
       }
+      grades: {
+        Row: {
+          id: string
+          student_id: string
+          course_id: string
+          category: string
+          name: string
+          score: number
+          max_score: number
+          weight: number
+          date: string
+          graded_by: string
+          feedback?: string
+          late: boolean
+          excused: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          course_id: string
+          category: string
+          name: string
+          score: number
+          max_score: number
+          weight?: number
+          date?: string
+          graded_by: string
+          feedback?: string
+          late?: boolean
+          excused?: boolean
+        }
+        Update: {
+          student_id?: string
+          course_id?: string
+          category?: string
+          name?: string
+          score?: number
+          max_score?: number
+          weight?: number
+          date?: string
+          graded_by?: string
+          feedback?: string
+          late?: boolean
+          excused?: boolean
+        }
+      }
       courses: {
         Row: {
           id: string

@@ -6,6 +6,7 @@ import { useSupabaseData } from "@/hooks/use-supabase-data"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ExamCreator } from "@/components/exam-creator"
@@ -14,11 +15,43 @@ import { ExamResults } from "@/components/exam-results"
 import { Plus, Clock, FileText, Edit, Trash2, Play, BarChart3, Calendar } from "lucide-react"
 import type { Exam, ExamSubmission } from "@/lib/data"
 
+// Loading skeleton component for exam cards
+function ExamSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[...Array(3)].map((_, i) => (
+        <Card key={i} className="animate-pulse">
+          <CardHeader className="space-y-2">
+            <div className="flex justify-between items-start">
+              <div className="space-y-2 flex-1">
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+              <Skeleton className="h-8 w-20" />
+            </div>
+            <div className="flex items-center space-x-4 pt-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-between items-center pt-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-9 w-24" />
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
 export function Exams() {
   // Get user and data from hooks
   const { user } = useAuth()
   const {
     data,
+    loading,
     addExam,
     updateExam,
     deleteExam,
@@ -112,13 +145,23 @@ export function Exams() {
   }
 
   const getExamStatus = (exam: Exam): string => {
-    const now = new Date()
-    const examDate = new Date(`${exam.date} ${exam.starttime}`)
-    const examEndDate = new Date(`${exam.date} ${exam.endtime}`)
-
-    if (now < examDate) return "upcoming"
-    if (now > examEndDate) return "completed"
-    return "active"
+    const now = new Date();
+    
+    // Create date strings in YYYY-MM-DD format for the exam date
+    const examDateStr = exam.date;
+    
+    // Create date objects with proper timezone handling
+    const examStart = new Date(`${examDateStr}T${exam.starttime}`);
+    const examEnd = new Date(`${examDateStr}T${exam.endtime}`);
+    
+    // If end time is earlier than start time, it means the exam ends the next day
+    if (examEnd <= examStart) {
+      examEnd.setDate(examEnd.getDate() + 1);
+    }
+    
+    if (now < examStart) return "upcoming";
+    if (now > examEnd) return "completed";
+    return "active";
   }
 
   const getStatusBadge = (status: string) => {
@@ -136,6 +179,31 @@ export function Exams() {
       default:
         return <Badge variant="outline">{status}</Badge>
     }
+  }
+
+  // Show loading skeleton while data is being fetched
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <Skeleton className="h-9 w-48 mb-2" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          {canManageExams && <Skeleton className="h-9 w-32" />}
+        </div>
+        <Tabs defaultValue="overview" className="space-y-4">
+          <TabsList>
+            <Skeleton className="h-9 w-24 mx-1" />
+            <Skeleton className="h-9 w-24 mx-1" />
+            {canManageExams && <Skeleton className="h-9 w-24 mx-1" />}
+          </TabsList>
+          <TabsContent value="overview">
+            <ExamSkeleton />
+          </TabsContent>
+        </Tabs>
+      </div>
+    )
   }
 
   return (

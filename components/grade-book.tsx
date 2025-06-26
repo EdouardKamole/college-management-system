@@ -36,8 +36,8 @@ export function GradeBook({
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
 
-  const courseGrades = grades.filter((g) => g.courseId === courseId)
-  const courseCategories = categories.filter((c) => c.courseId === courseId)
+  const courseGrades = grades.filter((g) => g.courseid === courseId)
+  const courseCategories = categories.filter((c) => c.courseid === courseId)
   const enrolledStudents = students.filter((s) => s.role === "student")
 
   // Get unique assignments
@@ -49,7 +49,7 @@ export function GradeBook({
         uniqueAssignments.set(key, {
           category: grade.category,
           name: grade.name,
-          maxScore: grade.maxScore,
+          maxScore: grade.maxscore,
           weight: grade.weight,
         })
       }
@@ -60,7 +60,7 @@ export function GradeBook({
   // Calculate student grades
   const studentGrades = useMemo(() => {
     return enrolledStudents.map((student) => {
-      const studentCourseGrades = courseGrades.filter((g) => g.studentId === student.id)
+      const studentCourseGrades = courseGrades.filter((g) => g.studentid === student.id)
       const { percentage } = calculateCourseGrade(studentCourseGrades, courseCategories, courseId)
       const { letter, gpa } = calculateLetterGrade(percentage, gradeScale)
 
@@ -88,7 +88,7 @@ export function GradeBook({
   }
 
   const getGradeForAssignment = (studentId: string, category: string, name: string) => {
-    return courseGrades.find((g) => g.studentId === studentId && g.category === category && g.name === name)
+    return courseGrades.find((g) => g.studentid === studentId && g.category === category && g.name === name)
   }
 
   if (viewMode === "list") {
@@ -138,10 +138,10 @@ export function GradeBook({
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className="font-medium">
-                          {grade.score}/{grade.maxScore}
+                          {grade.score}/{grade.maxscore}
                         </span>
                         <span className="text-sm text-muted-foreground">
-                          ({((grade.score / grade.maxScore) * 100).toFixed(1)}%)
+                          ({((grade.score / grade.maxscore) * 100).toFixed(1)}%)
                         </span>
                         <Button variant="ghost" size="sm" onClick={() => handleEditGrade(grade)}>
                           <Edit className="h-3 w-3" />
@@ -215,7 +215,7 @@ export function GradeBook({
                         <div className="group relative">
                           <div className="font-medium">{grade.score}</div>
                           <div className="text-xs text-muted-foreground">
-                            {((grade.score / grade.maxScore) * 100).toFixed(0)}%
+                            {((grade.score / grade.maxscore) * 100).toFixed(0)}%
                           </div>
                           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <div className="flex space-x-1">
@@ -320,11 +320,11 @@ export function GradeBook({
                   <Input
                     id="edit-maxScore"
                     type="number"
-                    value={editingGrade.maxScore}
+                    value={editingGrade.maxscore}
                     onChange={(e) =>
                       setEditingGrade({
                         ...editingGrade,
-                        maxScore: Number.parseFloat(e.target.value) || 0,
+                        maxscore: Number.parseFloat(e.target.value) || 0,
                       })
                     }
                   />
