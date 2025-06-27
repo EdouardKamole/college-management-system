@@ -1,8 +1,5 @@
 export interface User {
   id: string;
-  username: string;
-  password: string;
-  pin: string;
   role: "admin" | "instructor" | "student";
   name: string;
   email: string;
@@ -256,27 +253,18 @@ const initialData: AppData = {
   users: [
     {
       id: "27b12d91-482f-49dc-8279-27606a53e5bf",
-      username: "admin",
-      password: "admin123",
-      pin: "1234",
       role: "admin" as const,
       name: "Colonel James Smith",
       email: "admin@uafc.mil",
     },
     {
       id: "47f5a3b8-6c2d-4e1f-9a3b-8d9e0f1a2b3c",
-      username: "instructor1",
-      password: "inst123",
-      pin: "5678",
       role: "instructor" as const,
       name: "Major Sarah Johnson",
       email: "sarah.johnson@uafc.mil",
     },
     {
       id: "58e6b4c9-7d3e-5f2a-0b4c-9e1f2a3b4c5d",
-      username: "student1",
-      password: "stud123",
-      pin: "9012",
       role: "student" as const,
       name: "Cadet Michael Brown",
       email: "michael.brown@uafc.mil",

@@ -27,9 +27,7 @@ interface StudentFormData {
   // Basic Info
   name: string
   email: string
-  username: string
   password: string
-  pin: string
 
   // Bio Data
   dateOfBirth: string
@@ -164,9 +162,7 @@ export function StudentRegistration() {
   const [formData, setFormData] = useState<StudentFormData>({
     name: "",
     email: "",
-    username: "",
     password: "",
-    pin: "",
     dateOfBirth: "",
     homeDistrict: "",
     studentTelNo: "",
@@ -273,7 +269,7 @@ export function StudentRegistration() {
     }
 
     // Check if username/email already exists
-    const existingUser = data.users.find((u) => u.username === formData.username || u.email === formData.email)
+    const existingUser = data.users.find((u) => u.email === formData.email)
     if (existingUser) {
       alert("Username or email already exists")
       return
@@ -286,7 +282,6 @@ export function StudentRegistration() {
         password: formData.password,
         options: {
           data: {
-            username: formData.username,
             name: formData.name,
             role: 'student',
           }
@@ -303,10 +298,11 @@ export function StudentRegistration() {
       }
 
       // 2. Store user data in users table
+      const { password, ...formDataNoPassword } = formData;
       const newStudent = {
         id: supabaseUserId,
         role: "student" as const,
-        ...formData,
+        ...formDataNoPassword,
         academicStatus: "active" as const,
         performancePrediction: "good" as const,
       }
@@ -328,9 +324,7 @@ export function StudentRegistration() {
       setFormData({
         name: "",
         email: "",
-        username: "",
         password: "",
-        pin: "",
         dateOfBirth: "",
         homeDistrict: "",
         studentTelNo: "",
@@ -764,15 +758,7 @@ export function StudentRegistration() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="username">Username</Label>
-                        <Input
-                          id="username"
-                          value={formData.username}
-                          onChange={(e) => setFormData((prev) => ({ ...prev, username: e.target.value }))}
-                          placeholder="Auto-generated"
-                        />
-                      </div>
+                      
                       <div className="space-y-2">
                         <Label htmlFor="password">Password</Label>
                         <Input
@@ -782,16 +768,7 @@ export function StudentRegistration() {
                           placeholder="Auto-generated"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="pin">PIN</Label>
-                        <Input
-                          id="pin"
-                          value={formData.pin}
-                          onChange={(e) => setFormData((prev) => ({ ...prev, pin: e.target.value }))}
-                          placeholder="Auto-generated"
-                          maxLength={4}
-                        />
-                      </div>
+                      
                     </div>
                   </CardContent>
                 </Card>

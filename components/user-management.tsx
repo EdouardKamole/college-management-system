@@ -25,7 +25,6 @@ import { UserRegistration } from "./user-registration"
 interface User {
   id: string
   username: string
-  password: string
   pin: string
   role: "admin" | "instructor" | "student"
   name: string
@@ -44,7 +43,6 @@ export function UserManagement() {
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("all")
-  const [showPasswords, setShowPasswords] = useState<{ [key: string]: boolean }>({})
 
   // Always use users from Supabase
   const users = data.users as User[]
@@ -55,8 +53,7 @@ export function UserManagement() {
       filtered = filtered.filter(
         (user) =>
           user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.username.toLowerCase().includes(searchTerm.toLowerCase()),
+          user.email.toLowerCase().includes(searchTerm.toLowerCase()),
       )
     }
     if (roleFilter !== "all") {
@@ -94,13 +91,6 @@ export function UserManagement() {
     } catch (err: any) {
       alert(err.message || "Failed to delete user.")
     }
-  }
-
-  const togglePasswordVisibility = (userId: string) => {
-    setShowPasswords((prev) => ({
-      ...prev,
-      [userId]: !prev[userId],
-    }))
   }
 
   const getRoleIcon = (role: User["role"]) => {
@@ -273,10 +263,8 @@ export function UserManagement() {
             <CardContent className="space-y-3">
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Username:</span>
-                  <span className="font-mono">{user.username}</span>
                 </div>
-                <div className="flex justify-between items-center">
+                {/* <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Password:</span>
                   <div className="flex items-center space-x-2">
                     <span className="font-mono">{showPasswords[user.id] ? user.password : "••••••••"}</span>
@@ -284,7 +272,7 @@ export function UserManagement() {
                       {showPasswords[user.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                     </Button>
                   </div>
-                </div>
+                </div> */}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">PIN:</span>
                   <span className="font-mono">{user.pin}</span>

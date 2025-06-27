@@ -72,10 +72,7 @@ export function UserRegistration() {
     // Basic info
     name: "",
     email: "",
-    username: "",
     password: "",
-    pin: "",
-
     // Bio data
     dateofbirth: "",
     homedistrict: "",
@@ -86,7 +83,6 @@ export function UserRegistration() {
     mothercontact: "",
     nextofkinname: "",
     nextofkincontact: "",
-
     // Academic
     educationlevel: "",
     subjectcombination: [] as string[],
@@ -99,9 +95,7 @@ export function UserRegistration() {
   const [staffData, setStaffData] = useState({
     name: "",
     email: "",
-    username: "",
     password: "",
-    pin: "",
     role: "instructor" as "instructor" | "admin",
     department: "",
     qualification: "",
@@ -129,9 +123,9 @@ export function UserRegistration() {
     const pin = Math.floor(1000 + Math.random() * 9000).toString()
 
     if (type === "student") {
-      setStudentData((prev) => ({ ...prev, username, password, pin }))
+      setStudentData((prev) => ({ ...prev, password }))
     } else {
-      setStaffData((prev) => ({ ...prev, username, password, pin }))
+      setStaffData((prev) => ({ ...prev, password }))
     }
   }
 
@@ -196,9 +190,7 @@ export function UserRegistration() {
   if (
     !studentData.name ||
     !studentData.email ||
-    !studentData.username ||
     !studentData.password ||
-    !studentData.pin ||
     !studentData.courseid
   ) {
     alert("Please fill in all required fields")
@@ -213,7 +205,7 @@ export function UserRegistration() {
   }
 
   // Check if username/email exists
-  const existingUser = data.users.find((u) => u.username === studentData.username || u.email === studentData.email)
+  const existingUser = data.users.find((u) =>  u.email === studentData.email)
   if (existingUser) {
     alert("Username or email already exists");
     return;
@@ -226,7 +218,6 @@ export function UserRegistration() {
       password: studentData.password,
       options: {
         data: {
-          username: studentData.username,
           name: studentData.name,
           role: 'student',
         }
@@ -243,10 +234,11 @@ export function UserRegistration() {
     }
 
     // 2. Store user data in users table
+    const { password, ...studentDataNoPassword } = studentData;
     const newStudent = {
       id: supabaseUserId,
       role: "student" as const,
-      ...studentData,
+      ...studentDataNoPassword,
       academicstatus: "active" as const,
       performanceprediction: "good" as const,
     }
@@ -259,7 +251,7 @@ export function UserRegistration() {
     )
 
     // 3. Insert new student in users table
-    const { error: insertError } = await supabase.from('users').insert([{ ...newStudent }]);
+    const { error: insertError } = await supabase.from('users').insert([newStudent]);
     if (insertError) {
       alert(`Failed to save student: ${insertError.message}`);
       return;
@@ -288,9 +280,7 @@ export function UserRegistration() {
     if (
       !staffData.name ||
       !staffData.email ||
-      !staffData.username ||
       !staffData.password ||
-      !staffData.pin ||
       !staffData.role
     ) {
       alert("Please fill in all required fields")
@@ -298,7 +288,7 @@ export function UserRegistration() {
     }
 
     // Check if username/email exists
-    const existingUser = data.users.find((u) => u.username === staffData.username || u.email === staffData.email)
+    const existingUser = data.users.find((u) => u.email === staffData.email)
     if (existingUser) {
       alert("Username or email already exists")
       return
@@ -311,7 +301,6 @@ export function UserRegistration() {
         password: staffData.password,
         options: {
           data: {
-            username: staffData.username,
             name: staffData.name,
             role: staffData.role,
           }
@@ -326,10 +315,13 @@ export function UserRegistration() {
         alert('Failed to get user ID from Supabase Auth');
         return;
       }
+
+      const {password, ...staffDataNoPassword} = staffData;
+      
       // 2. Store user data in users table
       const newStaff = {
         id: supabaseUserId,
-        ...staffData,
+        ...staffDataNoPassword,
       };
       const { error: insertError } = await supabase.from('users').insert([{ ...newStaff }]);
       if (insertError) {
@@ -348,9 +340,7 @@ export function UserRegistration() {
     setStudentData({
       name: "",
       email: "",
-      username: "",
       password: "",
-      pin: "",
       dateofbirth: "",
       homedistrict: "",
       studenttelno: "",
@@ -370,9 +360,7 @@ export function UserRegistration() {
     setStaffData({
       name: "",
       email: "",
-      username: "",
       password: "",
-      pin: "",
       role: "instructor",
       department: "",
       qualification: "",
@@ -699,15 +687,7 @@ export function UserRegistration() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="student-username">Username *</Label>
-                    <Input
-                      id="student-username"
-                      value={studentData.username}
-                      onChange={(e) => setStudentData((prev) => ({ ...prev, username: e.target.value }))}
-                      placeholder="Auto-generated"
-                    />
-                  </div>
+                  
                   <div className="space-y-2">
                     <Label htmlFor="student-password">Password *</Label>
                     <Input
@@ -717,16 +697,7 @@ export function UserRegistration() {
                       placeholder="Auto-generated"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="student-pin">PIN *</Label>
-                    <Input
-                      id="student-pin"
-                      value={studentData.pin}
-                      onChange={(e) => setStudentData((prev) => ({ ...prev, pin: e.target.value }))}
-                      placeholder="Auto-generated"
-                      maxLength={4}
-                    />
-                  </div>
+                  
                 </div>
               </CardContent>
             </Card>
@@ -815,15 +786,7 @@ export function UserRegistration() {
                   </Button>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="instructor-username">Username *</Label>
-                    <Input
-                      id="instructor-username"
-                      value={staffData.username}
-                      onChange={(e) => setStaffData((prev) => ({ ...prev, username: e.target.value }))}
-                      placeholder="Auto-generated"
-                    />
-                  </div>
+                  
                   <div className="space-y-2">
                     <Label htmlFor="instructor-password">Password *</Label>
                     <Input
@@ -833,16 +796,7 @@ export function UserRegistration() {
                       placeholder="Auto-generated"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="instructor-pin">PIN *</Label>
-                    <Input
-                      id="instructor-pin"
-                      value={staffData.pin}
-                      onChange={(e) => setStaffData((prev) => ({ ...prev, pin: e.target.value }))}
-                      placeholder="Auto-generated"
-                      maxLength={4}
-                    />
-                  </div>
+                  
                 </div>
               </CardContent>
             </Card>
@@ -913,15 +867,7 @@ export function UserRegistration() {
                   </Button>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="admin-username">Username *</Label>
-                    <Input
-                      id="admin-username"
-                      value={staffData.username}
-                      onChange={(e) => setStaffData((prev) => ({ ...prev, username: e.target.value }))}
-                      placeholder="Auto-generated"
-                    />
-                  </div>
+                  
                   <div className="space-y-2">
                     <Label htmlFor="admin-password">Password *</Label>
                     <Input
@@ -931,16 +877,7 @@ export function UserRegistration() {
                       placeholder="Auto-generated"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="admin-pin">PIN *</Label>
-                    <Input
-                      id="admin-pin"
-                      value={staffData.pin}
-                      onChange={(e) => setStaffData((prev) => ({ ...prev, pin: e.target.value }))}
-                      placeholder="Auto-generated"
-                      maxLength={4}
-                    />
-                  </div>
+                  
                 </div>
               </CardContent>
             </Card>
