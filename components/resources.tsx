@@ -53,7 +53,7 @@ import {
   FolderOpen,
 } from "lucide-react"
 import { format } from "date-fns"
-import data from "@/lib/data"
+import { v4 as uuidv4 } from "uuid";
 
 import type { Resource } from "../lib/data";
 
@@ -143,7 +143,7 @@ export function Resources() {
 
     try {
       const newResource: Resource = {
-        id: editingResource?.id || Date.now().toString(),
+        id: editingResource?.id || uuidv4(),
         title: formData.title,
         description: formData.description,
         content: formData.content,
