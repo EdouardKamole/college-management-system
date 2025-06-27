@@ -32,6 +32,8 @@ interface AppData {
   transcripts: Transcript[];
 }
 
+import type { Transcript } from "@/lib/data";
+
 export function useSupabaseData() {
   const [data, setData] = useState<AppData>({
     users: [],
@@ -504,6 +506,25 @@ export function useSupabaseData() {
     loadData();
   }, []);
 
+  // Add transcript
+  const addTranscript = async (transcript: Omit<Transcript, "id">) => {
+    try {
+      const { data: newTranscript, error } = await supabase
+        .from("transcripts")
+        .insert([transcript])
+        .select()
+        .single();
+      if (error) throw error;
+      setData((prev) => ({
+        ...prev,
+        transcripts: [...prev.transcripts, newTranscript],
+      }));
+      return newTranscript;
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : "Failed to add transcript");
+    }
+  };
+
   return {
     data,
     loading,
@@ -529,5 +550,6 @@ export function useSupabaseData() {
     addGrade,
     updateGrade,
     deleteGrade,
+    addTranscript,
   };
 }

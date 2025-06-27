@@ -22,7 +22,7 @@ import type { Grade } from "@/lib/data"
 
 export function Grades() {
   const { user } = useAuth()
-  const { data, loading, error, reload: reloadData, addGrade, updateGrade, deleteGrade } = useSupabaseData()
+  const { data, loading, error, refetch, addGrade, updateGrade, deleteGrade, addTranscript } = useSupabaseData()
   const [activeTab, setActiveTab] = useState("overview")
   const [selectedCourse, setSelectedCourse] = useState<string>("")
   const [isAddGradeOpen, setIsAddGradeOpen] = useState(false)
@@ -164,7 +164,7 @@ export function Grades() {
       excused: gradeForm.excused,
     }
 
-    updateData({ grades: [...data.grades, newGrade] })
+    addGrade(newGrade)
     setGradeForm({
       studentId: "",
       category: "",
@@ -577,14 +577,8 @@ export function Grades() {
                   categories={data.gradeCategories}
                   students={data.users.filter((u) => u.role === "student")}
                   gradeScale={defaultGradeScale}
-                  onUpdateGrade={(gradeId, updates) => {
-                    const updatedGrades = data.grades.map((g) => (g.id === gradeId ? { ...g, ...updates } : g))
-                    updateData({ grades: updatedGrades })
-                  }}
-                  onDeleteGrade={(gradeId) => {
-                    const updatedGrades = data.grades.filter((g) => g.id !== gradeId)
-                    updateData({ grades: updatedGrades })
-                  }}
+                  onUpdateGrade={updateGrade}
+                  onDeleteGrade={deleteGrade}
                 />
               )}
             </TabsContent>
@@ -608,8 +602,13 @@ export function Grades() {
             courseGrades={data.courseGrades}
             gradeScale={defaultGradeScale}
             currentUser={user}
-            onGenerateTranscript={(transcript) => {
-              updateData({ transcripts: [...data.transcripts, transcript] })
+            onGenerateTranscript={async (transcript) => {
+              try {
+                await addTranscript(transcript);
+              } catch (err) {
+                console.error("Failed to add transcript:", err);
+                // Optionally, add user-facing error handling here
+              }
             }}
           />
         </TabsContent>
