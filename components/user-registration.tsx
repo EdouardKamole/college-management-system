@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { v4 as uuidv4 } from 'uuid' // For generating unique IDs for staff/admin
+import { v4 as uuidv4 } from 'uuid'
 import { useSupabaseData } from "@/hooks/use-supabase-data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"

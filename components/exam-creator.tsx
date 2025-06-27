@@ -11,6 +11,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Plus, Trash2, GripVertical, Save, Eye } from "lucide-react"
 import type { Exam, Question, Course } from "@/lib/data"
 
@@ -99,20 +101,9 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
     }
   }, [exam])
 
-  const addQuestion = (type: Question["type"]) => {
-    // Check if we already have a question with empty text
-    const hasEmptyQuestion = questions.some(q => q.question.trim() === '');
-    
-    if (hasEmptyQuestion) {
-      // Focus on the first empty question
-      const emptyQuestionIndex = questions.findIndex(q => q.question.trim() === '');
-      const questionInput = document.getElementById(`question-${emptyQuestionIndex}`) as HTMLTextAreaElement;
-      if (questionInput) {
-        questionInput.focus();
-      }
-      return;
-    }
+  const [questionType, setQuestionType] = useState("");
 
+  const addQuestion = (type: Question["type"]) => {
     const newQuestion: Question = {
       id: `q${Date.now()}`,
       type,
@@ -122,9 +113,8 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
       ...(type === "multiple-choice" && { options: ["", "", "", ""], correctAnswer: 0 }),
       ...(type === "true-false" && { options: ["True", "False"], correctAnswer: 0 }),
     };
-    
     setQuestions([...questions, newQuestion]);
-    
+    setQuestionType(""); // Reset dropdown after adding
     // Focus the new question input after it's rendered
     setTimeout(() => {
       const newIndex = questions.length;
@@ -384,30 +374,33 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
           <div className="grid grid-cols-3 gap-4">
             <div>
               <Label htmlFor="date">Exam Date</Label>
-              <Input
-                id="date"
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              />
+<Input
+  id="date"
+  type="date"
+  value={formData.date}
+  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+  className="text-black dark:text-white"
+/>
             </div>
             <div>
               <Label htmlFor="startTime">Start Time</Label>
-              <Input
-                id="startTime"
-                type="time"
-                value={formData.starttime}
-                onChange={(e) => setFormData({ ...formData, starttime: e.target.value })}
-              />
+<Input
+  id="startTime"
+  type="time"
+  value={formData.starttime}
+  onChange={(e) => setFormData({ ...formData, starttime: e.target.value })}
+  className="text-black dark:text-white"
+/>
             </div>
             <div>
               <Label htmlFor="endTime">End Time</Label>
-              <Input
-                id="endTime"
-                type="time"
-                value={formData.endtime}
-                onChange={(e) => setFormData({ ...formData, endtime: e.target.value })}
-              />
+<Input
+  id="endTime"
+  type="time"
+  value={formData.endtime}
+  onChange={(e) => setFormData({ ...formData, endtime: e.target.value })}
+  className="text-black dark:text-white"
+/>
             </div>
           </div>
 
@@ -465,18 +458,11 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
         <CardHeader>
           <div className="flex justify-between items-center">
             <div>
-              <CardTitle>Questions ({questions.length})</CardTitle>
-              <CardDescription>Total Points: {calculateTotalPoints()}</CardDescription>
-            </div>
-            <div className="flex space-x-2">
-              <Select 
+              <Select
+                value={questionType}
                 onValueChange={(value) => {
+                  setQuestionType(""); // Reset to empty string after adding
                   addQuestion(value as Question["type"]);
-                  // Reset the select value after adding question
-                  const select = document.querySelector('[aria-label="Add Question"]') as HTMLButtonElement;
-                  if (select) {
-                    select.click(); // Close the dropdown
-                  }
                 }}
               >
                 <SelectTrigger className="w-48" aria-label="Add Question">
