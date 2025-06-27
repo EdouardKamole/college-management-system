@@ -100,6 +100,19 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
   }, [exam])
 
   const addQuestion = (type: Question["type"]) => {
+    // Check if we already have a question with empty text
+    const hasEmptyQuestion = questions.some(q => q.question.trim() === '');
+    
+    if (hasEmptyQuestion) {
+      // Focus on the first empty question
+      const emptyQuestionIndex = questions.findIndex(q => q.question.trim() === '');
+      const questionInput = document.getElementById(`question-${emptyQuestionIndex}`) as HTMLTextAreaElement;
+      if (questionInput) {
+        questionInput.focus();
+      }
+      return;
+    }
+
     const newQuestion: Question = {
       id: `q${Date.now()}`,
       type,
@@ -108,8 +121,18 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
       required: true,
       ...(type === "multiple-choice" && { options: ["", "", "", ""], correctAnswer: 0 }),
       ...(type === "true-false" && { options: ["True", "False"], correctAnswer: 0 }),
-    }
-    setQuestions([...questions, newQuestion])
+    };
+    
+    setQuestions([...questions, newQuestion]);
+    
+    // Focus the new question input after it's rendered
+    setTimeout(() => {
+      const newIndex = questions.length;
+      const questionInput = document.getElementById(`question-${newIndex}`) as HTMLTextAreaElement;
+      if (questionInput) {
+        questionInput.focus();
+      }
+    }, 0);
   }
 
   const updateQuestion = (index: number, updates: Partial<Question>) => {
@@ -446,8 +469,17 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
               <CardDescription>Total Points: {calculateTotalPoints()}</CardDescription>
             </div>
             <div className="flex space-x-2">
-              <Select onValueChange={(value) => addQuestion(value as Question["type"])}>
-                <SelectTrigger className="w-48">
+              <Select 
+                onValueChange={(value) => {
+                  addQuestion(value as Question["type"]);
+                  // Reset the select value after adding question
+                  const select = document.querySelector('[aria-label="Add Question"]') as HTMLButtonElement;
+                  if (select) {
+                    select.click(); // Close the dropdown
+                  }
+                }}
+              >
+                <SelectTrigger className="w-48" aria-label="Add Question">
                   <SelectValue placeholder="Add Question" />
                 </SelectTrigger>
                 <SelectContent>

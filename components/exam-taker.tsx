@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Clock, Send, AlertTriangle } from "lucide-react"
+import { v4 as uuidv4 } from "uuid"
 import type { Exam, ExamSubmission, Question } from "@/lib/data"
 
 interface ExamTakerProps {
@@ -77,12 +78,21 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
     const { score, maxScore } = calculateScore();
     const hasManualGrading = questions.some((q) => (q.type === "short-answer" || q.type === "essay") && answers[q.id]);
 
+    // Convert answers to the format expected by the database
+    const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => ({
+      questionId,
+      answer: answer !== undefined ? answer : null,
+      questionType: questions.find(q => q.id === questionId)?.type || 'unknown',
+      submittedAt: new Date().toISOString()
+    }));
+
+    // Create a properly typed submission object with UUID
     const submission: ExamSubmission = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       examid: exam.id,
       studentid: user?.id || "",
       submissiondate: new Date().toISOString(),
-      answers,
+      answers: formattedAnswers, // Array of { questionId, answer, questionType, submittedAt }
       starttime: startTimeRef.current,
       submittime: new Date().toISOString(),
       timespent: exam.duration * 60 - timeLeft,
@@ -150,8 +160,40 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
     return (getAnsweredCount() / questions.length) * 100
   }
 
+  const parseOptions = (options: any): string[] => {
+    try {
+      // If options is already an array, return it
+      if (Array.isArray(options)) {
+        return options;
+      }
+      
+      // If options is a string that starts with [ and ends with ], parse it as JSON
+      if (typeof options === 'string' && options.trim().startsWith('[') && options.trim().endsWith(']')) {
+        return JSON.parse(options);
+      }
+      
+      // If options is a string that might be a stringified JSON object
+      if (typeof options === 'string') {
+        try {
+          const parsed = JSON.parse(options);
+          if (Array.isArray(parsed)) return parsed;
+          if (parsed && parsed.options && Array.isArray(parsed.options)) return parsed.options;
+        } catch (e) {
+          console.warn('Failed to parse options:', e);
+        }
+      }
+      
+      // Default fallback
+      return ["True", "False"];
+    } catch (e) {
+      console.warn('Error parsing options:', e);
+      return ["True", "False"];
+    }
+  };
+
   const renderQuestion = (question: Question, index: number) => {
-    const answer = answers[question.id]
+    const answer = answers[question.id];
+    const options = parseOptions(question.options);
 
     return (
       <Card key={question.id} className="mb-6">
@@ -173,7 +215,7 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
 
           {question.type === "multiple-choice" && (
             <div className="space-y-3">
-              {question.options?.map((option, optionIndex) => (
+              {options.map((option, optionIndex) => (
                 <div key={optionIndex} className="flex items-center space-x-3">
                   <input
                     type="radio"
@@ -194,8 +236,8 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
 
           {question.type === "true-false" && (
             <div className="space-y-3">
-              {question.options?.map((option, optionIndex) => (
-                <div key={optionIndex} className="flex items-center space-x-3">
+              {options.map((option, optionIndex) => (
+                <div key={optionIndex} className="flex items-center space-x-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md">
                   <input
                     type="radio"
                     id={`${question.id}-${optionIndex}`}
@@ -203,9 +245,12 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
                     value={optionIndex}
                     checked={answer === optionIndex}
                     onChange={(e) => handleAnswerChange(question.id, Number.parseInt(e.target.value))}
-                    className="w-4 h-4"
+                    className="w-4 h-4 text-blue-600 focus:ring-blue-500"
                   />
-                  <label htmlFor={`${question.id}-${optionIndex}`} className="text-sm cursor-pointer">
+                  <label 
+                    htmlFor={`${question.id}-${optionIndex}`} 
+                    className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer flex-1"
+                  >
                     {option}
                   </label>
                 </div>

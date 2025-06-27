@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { useData } from "@/hooks/use-data"
+import { useSupabaseData } from "@/hooks/use-supabase-data"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -22,7 +22,7 @@ import type { Grade } from "@/lib/data"
 
 export function Grades() {
   const { user } = useAuth()
-  const { data, updateData } = useData()
+  const { data, loading, error, reload: reloadData, addGrade, updateGrade, deleteGrade } = useSupabaseData()
   const [activeTab, setActiveTab] = useState("overview")
   const [selectedCourse, setSelectedCourse] = useState<string>("")
   const [isAddGradeOpen, setIsAddGradeOpen] = useState(false)
@@ -62,7 +62,7 @@ export function Grades() {
       if (user?.role === "admin") return [...(data.courses || [])];
       
       if (user?.role === "instructor") {
-        return (data.courses || []).filter((c) => c?.instructorid === user?.id);
+        return (data.courses || []).filter((c) => c.instructorid === user?.id);
       }
       
       if (user?.role === "student") {
@@ -90,7 +90,7 @@ export function Grades() {
       console.error("Error calculating student GPA:", error)
       return 0
     }
-  }, [data.courseGrades, user])
+  }, [data?.courseGrades, user])
 
   // Get grade statistics
   const gradeStats = useMemo(() => {

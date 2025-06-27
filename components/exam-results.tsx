@@ -19,21 +19,31 @@ interface ExamResultsProps {
 }
 
 export function ExamResults({ exam, submissions, currentUser, onClose }: ExamResultsProps) {
-  const [selectedSubmission, setSelectedSubmission] = useState<ExamSubmission | null>(null)
+  const [selectedSubmission, setSelectedSubmission] = useState<ExamSubmission | null>(userSubmission || null)
   const [gradingScores, setGradingScores] = useState<{ [questionId: string]: number }>({})
   const [gradingFeedback, setGradingFeedback] = useState<{ [questionId: string]: string }>({})
 
   const isInstructor = currentUser?.role === "admin" || currentUser?.role === "instructor"
-  const userSubmission = submissions.find((s) => s.studentId === currentUser?.id)
+  const userSubmission = submissions.find((s) => 
+    s && s.studentid && currentUser?.id && s.studentid.toString() === currentUser.id.toString()
+  )
 
   const calculateStats = () => {
-    const completedSubmissions = submissions.filter((s) => s.status === "graded" && s.score !== undefined)
+    const completedSubmissions = submissions.filter(
+      (s) => s && s.status === "graded" && s.score !== undefined && s.maxscore && s.maxscore > 0
+    )
+    
     if (completedSubmissions.length === 0) return null
 
-    const scores = completedSubmissions.map((s) => (s.score! / s.maxScore) * 100)
-    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length
-    const highest = Math.max(...scores)
-    const lowest = Math.min(...scores)
+    const scores = completedSubmissions.map((s) => {
+      const score = s.score || 0;
+      const maxScore = s.maxscore || 1; // Prevent division by zero
+      return (score / maxScore) * 100;
+    });
+    
+    const average = scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0;
+    const highest = scores.length > 0 ? Math.max(...scores) : 0;
+    const lowest = scores.length > 0 ? Math.min(...scores) : 0;
 
     return {
       totalSubmissions: submissions.length,
@@ -47,10 +57,22 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
   const stats = calculateStats()
 
   const renderQuestionResult = (question: any, index: number, submission: ExamSubmission) => {
-    const answer = submission.answers[question.id]
-    const isCorrect = question.correctAnswer !== undefined && answer === question.correctAnswer
-    const needsGrading =
-      (question.type === "short-answer" || question.type === "essay") && submission.status === "submitted"
+    // Find the answer for this question in the submission
+    const answerObj = Array.isArray(submission.answers) 
+      ? submission.answers.find((a: any) => a.questionId === question.id)
+      : null;
+    const answer = answerObj?.answer;
+    // Handle both string and number correct answers
+    const correctAnswer = question.correctAnswer?.toString() || '';
+    const studentAnswer = answer?.toString() || '';
+    
+    const isCorrect = correctAnswer && studentAnswer 
+      ? correctAnswer.toLowerCase() === studentAnswer.toLowerCase()
+      : false;
+      
+    const needsGrading = (question.type === "short-answer" || question.type === "essay") && 
+      submission.status === "submitted" && 
+      (!questionAnswer || questionAnswer.score === undefined);
 
     return (
       <Card key={question.id} className="mb-4">
@@ -228,7 +250,7 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
                     <span className="font-medium">Total Questions:</span> {exam.questions.length}
                   </div>
                   <div>
-                    <span className="font-medium">Total Points:</span> {exam.totalPoints}
+                    <span className="font-medium">Total Points:</span> {exam.totalpoints}
                   </div>
                   <div>
                     <span className="font-medium">Duration:</span> {exam.duration} minutes
@@ -259,9 +281,9 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
                   <option value="">Select a submission...</option>
                   {submissions.map((submission) => (
                     <option key={submission.id} value={submission.id}>
-                      Student {submission.studentId} - {submission.status}
+                      Student {submission.studentid} - {submission.status}
                       {submission.score !== undefined &&
-                        ` (${Math.round((submission.score / submission.maxScore) * 100)}%)`}
+                        ` (${Math.round((submission.score / submission.maxscore) * 100)}%)`}
                     </option>
                   ))}
                 </select>
@@ -276,7 +298,7 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
                     <CardContent>
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <span className="font-medium">Student ID:</span> {selectedSubmission.studentId}
+                          <span className="font-medium">Student ID:</span> {selectedSubmission.studentid}
                         </div>
                         <div>
                           <span className="font-medium">Status:</span>
@@ -289,23 +311,29 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
                         </div>
                         <div>
                           <span className="font-medium">Start Time:</span>{" "}
-                          {new Date(selectedSubmission.startTime).toLocaleString()}
+                          {new Date(selectedSubmission.starttime).toLocaleString()}
                         </div>
                         <div>
                           <span className="font-medium">Submit Time:</span>{" "}
-                          {selectedSubmission.submitTime
-                            ? new Date(selectedSubmission.submitTime).toLocaleString()
+                          {selectedSubmission.submittime
+                            ? new Date(selectedSubmission.submittime).toLocaleString(undefined, {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
                             : "N/A"}
                         </div>
                         <div>
                           <span className="font-medium">Time Spent:</span>{" "}
-                          {Math.round(selectedSubmission.timeSpent / 60)} minutes
+                          {Math.round(selectedSubmission.timespent / 60)} minutes
                         </div>
                         {selectedSubmission.score !== undefined && (
                           <div>
                             <span className="font-medium">Score:</span> {selectedSubmission.score}/
-                            {selectedSubmission.maxScore} (
-                            {Math.round((selectedSubmission.score / selectedSubmission.maxScore) * 100)}%)
+                            {selectedSubmission.maxscore} (
+                            {Math.round((selectedSubmission.score / selectedSubmission.maxscore) * 100)}%)
                           </div>
                         )}
                       </div>
@@ -350,23 +378,29 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
                     </div>
                     <div>
                       <span className="font-medium">Submitted:</span>{" "}
-                      {userSubmission.submitTime ? new Date(userSubmission.submitTime).toLocaleString() : "N/A"}
+                      {userSubmission.submittime ? new Date(userSubmission.submittime).toLocaleString(undefined, {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : "N/A"}
                     </div>
                     <div>
-                      <span className="font-medium">Time Spent:</span> {Math.round(userSubmission.timeSpent / 60)}{" "}
+                      <span className="font-medium">Time Spent:</span> {Math.round(userSubmission.timespent / 60)}{" "}
                       minutes
                     </div>
                     {userSubmission.score !== undefined && (
                       <div>
-                        <span className="font-medium">Score:</span> {userSubmission.score}/{userSubmission.maxScore} (
-                        {Math.round((userSubmission.score / userSubmission.maxScore) * 100)}%)
+                        <span className="font-medium">Score:</span> {userSubmission.score}/{userSubmission.maxscore} (
+                        {Math.round((userSubmission.score / userSubmission.maxscore) * 100)}%)
                       </div>
                     )}
                   </div>
                 </CardContent>
               </Card>
 
-              {exam.showResults && (
+              {exam.showresults && (
                 <div className="space-y-4">
                   {exam.questions.map((question, index) => renderQuestionResult(question, index, userSubmission))}
                 </div>
@@ -388,13 +422,13 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
                 <Card key={submission.id}>
                   <CardHeader>
                     <div className="flex justify-between items-center">
-                      <CardTitle className="text-lg">Student {submission.studentId}</CardTitle>
+                      <CardTitle className="text-lg">Student {submission.studentid}</CardTitle>
                       <div className="flex items-center space-x-2">
                         <Badge variant={submission.status === "graded" ? "default" : "secondary"}>
                           {submission.status}
                         </Badge>
                         {submission.score !== undefined && (
-                          <Badge variant="outline">{Math.round((submission.score / submission.maxScore) * 100)}%</Badge>
+                          <Badge variant="outline">{Math.round((submission.score / submission.maxscore) * 100)}%</Badge>
                         )}
                       </div>
                     </div>
@@ -403,11 +437,11 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div className="flex items-center">
                         <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                        {Math.round(submission.timeSpent / 60)} minutes
+                        {Math.round(submission.timespent / 60)} minutes
                       </div>
                       <div>
                         Submitted:{" "}
-                        {submission.submitTime ? new Date(submission.submitTime).toLocaleString() : "In progress"}
+                        {submission.submittime ? new Date(submission.submittime).toLocaleString() : "In progress"}
                       </div>
                       <div className="text-right">
                         <Button variant="outline" size="sm" onClick={() => setSelectedSubmission(submission)}>
