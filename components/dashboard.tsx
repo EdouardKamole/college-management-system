@@ -101,10 +101,10 @@ export function Dashboard({ onModuleChange }: DashboardProps) {
             totalExams: data.exams?.length || 0,
           };
         } else if (user.role === "instructor") {
-          const myCourses = data.courses.filter((c) => c.instructorId === user.id);
-          const myStudents = new Set(myCourses.flatMap((c) => c.studentIds || [])).size;
+          const myCourses = data.courses.filter((c) => c.instructorid === user.id);
+          const myStudents = new Set(myCourses.flatMap((c) => c.studentids || [])).size;
           const myExams = data.exams.filter((e) =>
-            myCourses.some((c) => c.id === e.courseId)
+            myCourses.some((c) => c.id === e.courseid)
           );
           
           newStats = {
@@ -112,16 +112,16 @@ export function Dashboard({ onModuleChange }: DashboardProps) {
             myStudents,
             myExams: myExams.length,
             pendingGrades: data.grades.filter((g) =>
-              myExams.some((e) => e.id === g.examId && (!g.score || g.score === 0))
+              myExams.some((e) => e.id === g.examid && (!g.score || g.score === 0))
             ).length,
           };
         } else {
           const myCourses = data.courses.filter((c) =>
-            c.studentIds?.includes(user.id) || false
+            c.studentids?.includes(user.id) || false
           );
-          const myGrades = data.grades.filter((g) => g.studentId === user.id && g.score);
+          const myGrades = data.grades.filter((g) => g.studentid === user.id && g.score);
           const myAttendance = data.attendance.filter(
-            (a) => a.studentId === user.id
+            (a) => a.studentid === user.id
           );
           const attendanceRate =
             myAttendance.length > 0
@@ -133,7 +133,7 @@ export function Dashboard({ onModuleChange }: DashboardProps) {
           const averageGrade = myGrades.length > 0
             ? Math.round(
                 myGrades.reduce(
-                  (sum, g) => sum + (g.score / g.maxScore) * 100,
+                  (sum, g) => sum + (g.score / g.maxscore) * 100,
                   0
                 ) / myGrades.length
               )

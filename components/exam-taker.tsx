@@ -40,7 +40,6 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false)
   const startTimeRef = useRef(new Date().toISOString())
-  const intervalRef = useRef<NodeJS.Timeout>()
 
   const questions = exam.randomizequestions ? [...exam.questions].sort(() => Math.random() - 0.5) : exam.questions
 

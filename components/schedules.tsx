@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { useData } from "@/hooks/use-data"
+import { useSupabaseData } from "@/hooks/use-supabase-data"
+import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -26,7 +27,7 @@ import type { Schedule } from "@/lib/data"
 
 export function Schedules() {
   const { user } = useAuth()
-  const { data, updateData } = useData()
+  const { data, loading, error, refetch } = useSupabaseData()
   const [selectedDate, setSelectedDate] = useState<string>(formatDate(new Date()))
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null)
@@ -45,12 +46,13 @@ export function Schedules() {
   })
 
   const canManageSchedules = user?.role === "admin"
-  const userCourses =
-    user?.role === "instructor"
-      ? data.courses.filter((c) => c.instructorId === user.id)
-      : user?.role === "student"
-        ? data.courses.filter((c) => c.studentIds.includes(user.id))
-        : data.courses
+  const courses = data.courses
+  let userCourses = courses
+  if (user?.role === "instructor") {
+    userCourses = courses.filter((c: any) => c.instructorId === user.id)
+  } else if (user?.role === "student") {
+    userCourses = courses.filter((c: any) => c.studentIds?.includes(user.id))
+  }
 
   // Generate calendar events from courses and schedules
   const calendarEvents = useMemo(() => {
@@ -69,12 +71,12 @@ export function Schedules() {
 
     // Add exam events
     data.exams.forEach((exam) => {
-      const course = data.courses.find((c) => c.id === exam.courseId)
+      const course = data.courses.find((c) => c.id === exam.courseid)
       if (
         course &&
         (user?.role === "admin" ||
-          (user?.role === "instructor" && course.instructorId === user.id) ||
-          (user?.role === "student" && course.studentIds.includes(user.id)))
+          (user?.role === "instructor" && course.instructorid === user.id) ||
+          (user?.role === "student" && course.studentids.includes(user.id)))
       ) {
         events.push({
           id: `exam-${exam.id}`,
@@ -83,7 +85,7 @@ export function Schedules() {
           time: "09:00",
           endTime: "11:00",
           type: "exam",
-          courseId: exam.courseId,
+          courseId: exam.courseid,
           description: `Duration: ${exam.duration} minutes`,
           color: getEventColor("exam"),
         })
@@ -96,8 +98,8 @@ export function Schedules() {
       if (
         course &&
         (user?.role === "admin" ||
-          (user?.role === "instructor" && course.instructorId === user.id) ||
-          (user?.role === "student" && course.studentIds.includes(user.id)))
+          (user?.role === "instructor" && course.instructorid === user.id) ||
+          (user?.role === "student" && course.studentids.includes(user.id)))
       ) {
         events.push({
           id: `schedule-${schedule.id}`,
@@ -106,8 +108,8 @@ export function Schedules() {
           time: schedule.time,
           type: schedule.type,
           courseId: schedule.courseId,
-          instructorId: schedule.instructorId,
-          room: schedule.room,
+          instructorId: schedule.instructorid,
+          room: schedule.room || "",
           color: getEventColor(schedule.type),
         })
       }
@@ -118,34 +120,45 @@ export function Schedules() {
 
   const selectedDateEvents = getEventsForDate(calendarEvents, selectedDate)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.title || !formData.date || !formData.time) return
 
     if (editingSchedule) {
-      const updatedSchedules = data.schedules.map((s) =>
-        s.id === editingSchedule.id
-          ? {
-              ...s,
-              courseId: formData.courseId || s.courseId,
-              date: formData.date,
-              time: formData.time,
-              room: formData.room,
-              type: formData.type,
-            }
-          : s,
-      )
-      updateData({ schedules: updatedSchedules })
+      const dateObj = new Date(formData.date);
+      const dayofweek = dateObj.toLocaleDateString("en-US", { weekday: "long" });
+      await supabase.from("schedules").update({
+        ...editingSchedule,
+        courseid: formData.courseId || editingSchedule.courseid,
+        dayofweek,
+        starttime: formData.time,
+        endtime: formData.endTime,
+        location: formData.room,
+        instructorid: user?.id || editingSchedule.instructorid,
+        type: formData.type,
+        title: formData.title,
+        description: formData.description ?? editingSchedule.description
+      }).eq("id", editingSchedule.id)
+      await refetch()
     } else {
+      const dateObj = new Date(formData.date);
+      const dayofweek = dateObj.toLocaleDateString("en-US", { weekday: "long" });
       const newSchedule: Schedule = {
         id: Date.now().toString(),
-        courseId: formData.courseId,
-        date: formData.date,
-        time: formData.time,
-        instructorId: user?.id || "",
-        room: formData.room,
+        courseid: formData.courseId,
+        dayofweek,
+        starttime: formData.time,
+        endtime: formData.endTime,
+        location: formData.room,
+        instructorid: user?.id || "",
         type: formData.type,
+        title: formData.title,
+        description: formData.description ?? "",
+        date: "",
+        time: "",
+        courseId: ""
       }
-      updateData({ schedules: [...data.schedules, newSchedule] })
+      await supabase.from("schedules").insert([newSchedule])
+      await refetch()
     }
 
     resetForm()
@@ -153,14 +166,14 @@ export function Schedules() {
 
   const resetForm = () => {
     setFormData({
-      title: "",
-      date: "",
-      time: "",
-      endTime: "",
-      type: "class",
-      courseId: "",
-      room: "",
-      description: "",
+      title: editingSchedule?.title || "",
+      date: editingSchedule?.date || "",
+      time: editingSchedule?.time || "",
+      endTime: editingSchedule?.endTime || "",
+      type: editingSchedule?.type || "class",
+      courseId: editingSchedule?.courseId || "",
+      room: editingSchedule?.room || "",
+      description: editingSchedule?.description || "",
     })
     setEditingSchedule(null)
     setIsDialogOpen(false)
@@ -185,15 +198,15 @@ export function Schedules() {
       endTime: "",
       type: schedule.type,
       courseId: schedule.courseId,
-      room: schedule.room,
-      description: "",
+      room: schedule.room || "",
+      description: schedule.description || "",
     })
     setIsDialogOpen(true)
   }
 
-  const handleDelete = (scheduleId: string) => {
-    const updatedSchedules = data.schedules.filter((s) => s.id !== scheduleId)
-    updateData({ schedules: updatedSchedules })
+  const handleDelete = async (scheduleId: string) => {
+    await supabase.from("schedules").delete().eq("id", scheduleId)
+    await refetch()
   }
 
   const getInstructorName = (instructorId: string) => {
@@ -295,8 +308,8 @@ export function Schedules() {
                 return (
                   course &&
                   (user?.role === "admin" ||
-                    (user?.role === "instructor" && course.instructorId === user.id) ||
-                    (user?.role === "student" && course.studentIds.includes(user.id)))
+                    (user?.role === "instructor" && course.instructorid === user.id) ||
+                    (user?.role === "student" && course.studentids.includes(user.id)))
                 )
               })
               .map((schedule) => {
@@ -306,7 +319,7 @@ export function Schedules() {
                     <CardHeader>
                       <div className="flex justify-between items-start">
                         <div>
-                          <CardTitle className="text-lg">{getCourseName(schedule.courseId)}</CardTitle>
+                          <CardTitle className="text-lg">{getCourseName(schedule.courseId || "")}</CardTitle>
                           <CardDescription>
                             <Badge variant={schedule.type === "exam" ? "destructive" : "default"}>
                               {schedule.type}
@@ -346,7 +359,7 @@ export function Schedules() {
                         </div>
                         <div className="flex items-center">
                           <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                          {getInstructorName(schedule.instructorId)}
+                          {getInstructorName(schedule.instructorid || "")}
                         </div>
                       </div>
                     </CardContent>
@@ -416,7 +429,7 @@ export function Schedules() {
             <div>
               <Label htmlFor="course">Course</Label>
               <Select
-                value={formData.courseId}
+                value={formData.courseId || ""}
                 onValueChange={(value) => setFormData({ ...formData, courseId: value })}
               >
                 <SelectTrigger>
@@ -434,7 +447,7 @@ export function Schedules() {
 
             <div>
               <Label htmlFor="type">Event Type</Label>
-              <Select value={formData.type} onValueChange={(value: any) => setFormData({ ...formData, type: value })}>
+              <Select value={formData.type || ""} onValueChange={(value: any) => setFormData({ ...formData, type: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -452,7 +465,7 @@ export function Schedules() {
               <Input
                 id="date"
                 type="date"
-                value={formData.date}
+                value={formData.date || ""}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               />
             </div>
@@ -463,7 +476,7 @@ export function Schedules() {
                 <Input
                   id="time"
                   type="time"
-                  value={formData.time}
+                  value={formData.time || ""}
                   onChange={(e) => setFormData({ ...formData, time: e.target.value })}
                 />
               </div>
@@ -472,7 +485,7 @@ export function Schedules() {
                 <Input
                   id="endTime"
                   type="time"
-                  value={formData.endTime}
+                  value={formData.endTime || ""}
                   onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
                 />
               </div>
@@ -482,7 +495,7 @@ export function Schedules() {
               <Label htmlFor="room">Room</Label>
               <Input
                 id="room"
-                value={formData.room}
+                value={formData.room || ""}
                 onChange={(e) => setFormData({ ...formData, room: e.target.value })}
                 placeholder="Enter room number"
               />
@@ -492,7 +505,7 @@ export function Schedules() {
               <Label htmlFor="description">Description (Optional)</Label>
               <Textarea
                 id="description"
-                value={formData.description}
+                value={formData.description || ""}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Additional details"
               />

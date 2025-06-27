@@ -53,29 +53,14 @@ import {
   FolderOpen,
 } from "lucide-react"
 import { format } from "date-fns"
+import data from "@/lib/data"
 
-interface Resource {
-  id: string
-  title: string
-  description: string
-  content?: string
-  fileUrl?: string
-  fileName?: string
-  fileSize?: number
-  fileType?: string
-  courseId: string
-  category: "document" | "video" | "audio" | "image" | "presentation" | "assignment" | "reading" | "other"
-  uploadedBy: string
-  uploadDate: string
-  isPublic: boolean
-  downloadCount: number
-  tags: string[]
-}
+import type { Resource } from "../lib/data";
 
 export function Resources() {
   const { user } = useAuth()
-  const { data, updateData } = useData()
-  const [resources, setResources] = useState<Resource[]>([])
+  const { data, loading, error, refetch } = useSupabaseData()
+  const resources = data.resources
   const [filteredResources, setFilteredResources] = useState<Resource[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCourse, setSelectedCourse] = useState<string>("all")
@@ -96,29 +81,7 @@ export function Resources() {
     tags: "",
   })
 
-  useEffect(() => {
-    // Initialize resources from data
-    const initialResources: Resource[] =
-      data.resources?.map((r) => ({
-        id: r.id,
-        title: r.title,
-        description: r.description,
-        content: r.content,
-        courseId: r.courseId,
-        category: "document" as Resource["category"],
-        uploadedBy: r.uploadedBy,
-        uploadDate: r.uploadDate,
-        isPublic: true,
-        downloadCount: 0,
-        tags: [],
-        fileUrl: undefined,
-        fileName: undefined,
-        fileSize: undefined,
-        fileType: undefined,
-      })) || []
-    setResources(initialResources)
-  }, [data.resources])
-
+  // All hooks are above.
   useEffect(() => {
     // Filter resources based on search and filters
     let filtered = resources
@@ -147,6 +110,14 @@ export function Resources() {
 
     setFilteredResources(filtered)
   }, [resources, searchTerm, selectedCourse, selectedCategory, user?.role])
+
+  // Now handle loading/error states below:
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent" />
+    </div>
+  )
+  if (error) return <div>Error loading resources: {error}</div>
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -193,26 +164,18 @@ export function Resources() {
       }
 
       if (editingResource) {
-        // Update existing resource
-        const updatedResources = resources.map((r) => (r.id === editingResource.id ? newResource : r))
-        setResources(updatedResources)
+        // Update existing resource in Supabase
+        await supabase
+          .from('resources')
+          .update(newResource)
+          .eq('id', editingResource.id);
       } else {
-        // Add new resource
-        setResources((prev) => [...prev, newResource])
+        // Add new resource to Supabase
+        await supabase
+          .from('resources')
+          .insert([newResource]);
       }
-
-      // Update data store
-      const updatedDataResources = resources.map((r) => ({
-        id: r.id,
-        title: r.title,
-        description: r.description,
-        content: r.content || "",
-        courseId: r.courseId,
-        uploadedBy: r.uploadedBy,
-        uploadDate: r.uploadDate,
-      }))
-
-      updateData({ resources: updatedDataResources })
+      await refetch();
 
       // Reset form
       setFormData({
@@ -240,7 +203,7 @@ export function Resources() {
       title: resource.title,
       description: resource.description,
       content: resource.content || "",
-      courseId: resource.courseId,
+      courseId: resource.courseId, // use camelCase for UI/state
       category: resource.category,
       isPublic: resource.isPublic,
       tags: resource.tags.join(", "),
@@ -248,37 +211,29 @@ export function Resources() {
     setIsAddDialogOpen(true)
   }
 
-  const handleDelete = (resourceId: string) => {
-    const updatedResources = resources.filter((r) => r.id !== resourceId)
-    setResources(updatedResources)
-
-    const updatedDataResources = updatedResources.map((r) => ({
-      id: r.id,
-      title: r.title,
-      description: r.description,
-      content: r.content || "",
-      courseId: r.courseId,
-      uploadedBy: r.uploadedBy,
-      uploadDate: r.uploadDate,
-    }))
-
-    updateData({ resources: updatedDataResources })
+  const handleDelete = async (resourceId: string) => {
+    await supabase
+      .from('resources')
+      .delete()
+      .eq('id', resourceId);
+    await refetch();
   }
 
-  const handleDownload = (resource: Resource) => {
+  const handleDownload = async (resource: Resource) => {
     if (resource.fileUrl) {
-      const link = document.createElement("a")
-      link.href = resource.fileUrl
-      link.download = resource.fileName || resource.title
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      const link = document.createElement("a");
+      link.href = resource.fileUrl;
+      link.download = resource.fileName || resource.title;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
-      // Update download count
-      const updatedResources = resources.map((r) =>
-        r.id === resource.id ? { ...r, downloadCount: r.downloadCount + 1 } : r,
-      )
-      setResources(updatedResources)
+      // Update download count in Supabase
+      await supabase
+        .from('resources')
+        .update({ downloadCount: (resource.downloadCount || 0) + 1 })
+        .eq('id', resource.id);
+      await refetch();
     }
   }
 
@@ -318,7 +273,7 @@ export function Resources() {
     user?.role === "admin"
       ? data.courses
       : data.courses?.filter(
-          (course) => course.instructorId === user?.id || course.studentIds?.includes(user?.id || ""),
+          (course) => course.instructorid === user?.id || course.studentids?.includes(user?.id || ""),
         ) || []
 
   return (

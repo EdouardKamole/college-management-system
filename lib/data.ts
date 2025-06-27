@@ -99,15 +99,33 @@ export interface Attendance {
 
 export interface Resource {
   id: string;
-  courseid: string;
   title: string;
   description: string;
-  fileurl: string;
-  uploaddate: string;
+  content?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  fileType?: string;
+  courseId: string;
+  category: "document" | "video" | "audio" | "image" | "presentation" | "assignment" | "reading" | "other";
+  uploadedBy: string;
+  uploadDate: string;
+  isPublic: boolean;
+  downloadCount: number;
+  tags: string[];
 }
 
 export interface Schedule {
   id: string;
+  title: string;
+  date: string;
+  time: string;
+  endTime?: string;
+  type: "class" | "exam" | "meeting" | "event";
+  courseId: string;
+  room?: string;
+  description?: string;
+  instructorid?: string;
   courseid: string;
   dayofweek: string;
   starttime: string;
