@@ -24,6 +24,8 @@ import {
   type CalendarEvent,
 } from "@/lib/calendar-utils"
 import type { Schedule } from "@/lib/data"
+import { v4 as uuidv4 } from "uuid"
+import React from "react"
 
 export function Schedules() {
   const { user } = useAuth()
@@ -94,7 +96,7 @@ export function Schedules() {
 
     // Add custom schedule events
     data.schedules.forEach((schedule) => {
-      const course = data.courses.find((c) => c.id === schedule.courseId)
+      const course = data.courses.find((c) => c.id === schedule.courseid)
       if (
         course &&
         (user?.role === "admin" ||
@@ -107,7 +109,7 @@ export function Schedules() {
           date: schedule.date,
           time: schedule.time,
           type: schedule.type,
-          courseId: schedule.courseId,
+          courseId: schedule.courseid,
           instructorId: schedule.instructorid,
           room: schedule.room || "",
           color: getEventColor(schedule.type),
@@ -121,47 +123,61 @@ export function Schedules() {
   const selectedDateEvents = getEventsForDate(calendarEvents, selectedDate)
 
   const handleSubmit = async () => {
-    if (!formData.title || !formData.date || !formData.time) return
-
-    if (editingSchedule) {
-      const dateObj = new Date(formData.date);
-      const dayofweek = dateObj.toLocaleDateString("en-US", { weekday: "long" });
-      await supabase.from("schedules").update({
-        ...editingSchedule,
-        courseid: formData.courseId || editingSchedule.courseid,
-        dayofweek,
-        starttime: formData.time,
-        endtime: formData.endTime,
-        location: formData.room,
-        instructorid: user?.id || editingSchedule.instructorid,
-        type: formData.type,
-        title: formData.title,
-        description: formData.description ?? editingSchedule.description
-      }).eq("id", editingSchedule.id)
-      await refetch()
-    } else {
-      const dateObj = new Date(formData.date);
-      const dayofweek = dateObj.toLocaleDateString("en-US", { weekday: "long" });
-      const newSchedule: Schedule = {
-        id: Date.now().toString(),
-        courseid: formData.courseId,
-        dayofweek,
-        starttime: formData.time,
-        endtime: formData.endTime,
-        location: formData.room,
-        instructorid: user?.id || "",
-        type: formData.type,
-        title: formData.title,
-        description: formData.description ?? "",
-        date: "",
-        time: "",
-        courseId: ""
-      }
-      await supabase.from("schedules").insert([newSchedule])
-      await refetch()
+    if (!formData.title || !formData.date || !formData.time) {
+      alert("Please fill in all required fields (title, date, time).")
+      return
     }
 
-    resetForm()
+    try {
+      if (editingSchedule) {
+        const dateObj = new Date(formData.date);
+        const dayofweek = dateObj.toLocaleDateString("en-US", { weekday: "long" });
+        await supabase.from("schedules").update({
+          ...editingSchedule,
+          courseid: formData.courseId || editingSchedule.courseid,
+          dayofweek,
+          starttime: formData.time,
+          endtime: formData.endTime,
+          location: formData.room,
+          instructorid: user?.id || editingSchedule.instructorid,
+          type: formData.type,
+          title: formData.title,
+          description: formData.description ?? editingSchedule.description,
+          date: formData.date,
+          time: formData.time,
+          // courseid: formData.courseId
+        }).eq("id", editingSchedule.id)
+        await refetch()
+      } else {
+        const dateObj = new Date(formData.date)
+        const dayofweek = dateObj.toLocaleDateString("en-US", { weekday: "long" })
+        const newSchedule: Schedule = {
+          id: uuidv4(),
+          
+          dayofweek,
+          starttime: formData.time,
+          endtime: formData.endTime,
+          location: formData.room,
+          instructorid: user?.id || "",
+          type: formData.type,
+          title: formData.title,
+          description: formData.description ?? "",
+          date: formData.date,     
+          time: formData.time,  
+       courseid: formData.courseId 
+        }
+        const { error } = await supabase.from("schedules").insert([newSchedule])
+        if (error) {
+          alert("Failed to create event: " + error.message)
+          return
+        }
+        await refetch()
+      }
+      resetForm()
+    } catch (err) {
+      alert("An error occurred while creating the event.")
+      console.error(err)
+    }
   }
 
   const resetForm = () => {
@@ -171,7 +187,7 @@ export function Schedules() {
       time: editingSchedule?.time || "",
       endTime: editingSchedule?.endTime || "",
       type: editingSchedule?.type || "class",
-      courseId: editingSchedule?.courseId || "",
+      courseId: editingSchedule?.courseid || "",
       room: editingSchedule?.room || "",
       description: editingSchedule?.description || "",
     })
@@ -189,7 +205,7 @@ export function Schedules() {
   }
 
   const handleEdit = (schedule: Schedule) => {
-    const course = data.courses.find((c) => c.id === schedule.courseId)
+    const course = data.courses.find((c) => c.id === schedule.courseid)
     setEditingSchedule(schedule)
     setFormData({
       title: course?.name || "",
@@ -197,7 +213,7 @@ export function Schedules() {
       time: schedule.time,
       endTime: "",
       type: schedule.type,
-      courseId: schedule.courseId,
+      courseId: schedule.courseid,
       room: schedule.room || "",
       description: schedule.description || "",
     })
@@ -218,6 +234,16 @@ export function Schedules() {
     const course = data.courses.find((c) => c.id === courseId)
     return course?.name || "Unknown Course"
   }
+
+  if (loading) return (
+    <div className="fixed inset-0 flex items-center justify-center bg-white bg-opacity-60 z-50">
+      <div className="flex flex-col items-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent mb-4" />
+        <span className="text-lg text-blue-700">Loading schedules...</span>
+      </div>
+    </div>
+  )
+  if (error) return <div className="text-red-500 p-6">Error loading schedules: {error}</div>
 
   return (
     <div className="p-6 space-y-6">
@@ -304,7 +330,7 @@ export function Schedules() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {data.schedules
               .filter((schedule) => {
-                const course = data.courses.find((c) => c.id === schedule.courseId)
+                const course = data.courses.find((c) => c.id === schedule.courseid)
                 return (
                   course &&
                   (user?.role === "admin" ||
@@ -313,13 +339,13 @@ export function Schedules() {
                 )
               })
               .map((schedule) => {
-                const course = data.courses.find((c) => c.id === schedule.courseId)
+                const course = data.courses.find((c) => c.id === schedule.courseid)
                 return (
                   <Card key={schedule.id}>
                     <CardHeader>
                       <div className="flex justify-between items-start">
                         <div>
-                          <CardTitle className="text-lg">{getCourseName(schedule.courseId || "")}</CardTitle>
+                          <CardTitle className="text-lg">{getCourseName(schedule.courseid || "")}</CardTitle>
                           <CardDescription>
                             <Badge variant={schedule.type === "exam" ? "destructive" : "default"}>
                               {schedule.type}
@@ -426,6 +452,16 @@ export function Schedules() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            <div>
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                value={formData.title || ""}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Enter event title"
+                required
+              />
+            </div>
             <div>
               <Label htmlFor="course">Course</Label>
               <Select

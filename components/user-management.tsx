@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { useData } from "@/hooks/use-data"
+import { useSupabaseData } from "@/hooks/use-supabase-data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,7 +30,6 @@ interface User {
   role: "admin" | "instructor" | "student"
   name: string
   email: string
-  // Student specific fields
   dateOfBirth?: string
   homeDistrict?: string
   studentTelNo?: string
@@ -41,18 +40,30 @@ interface User {
 
 export function UserManagement() {
   const { user: currentUser } = useAuth()
-  const { data, updateData } = useData()
-  const [users, setUsers] = useState<User[]>([])
+  const { data, loading, error, deleteUser } = useSupabaseData()
   const [filteredUsers, setFilteredUsers] = useState<User[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [roleFilter, setRoleFilter] = useState<string>("all")
   const [showPasswords, setShowPasswords] = useState<{ [key: string]: boolean }>({})
 
+  // Always use users from Supabase
+  const users = data.users as User[]
+
   useEffect(() => {
-    if (data.users) {
-      setUsers(data.users as User[])
+    let filtered = users
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (user) =>
+          user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.username.toLowerCase().includes(searchTerm.toLowerCase()),
+      )
     }
-  }, [data.users])
+    if (roleFilter !== "all") {
+      filtered = filtered.filter((user) => user.role === roleFilter)
+    }
+    setFilteredUsers(filtered)
+  }, [users, searchTerm, roleFilter])
 
   useEffect(() => {
     let filtered = users
@@ -73,15 +84,16 @@ export function UserManagement() {
     setFilteredUsers(filtered)
   }, [users, searchTerm, roleFilter])
 
-  const handleDelete = (userId: string) => {
+  const handleDelete = async (userId: string) => {
     if (userId === currentUser?.id) {
       alert("You cannot delete your own account!")
       return
     }
-
-    const updatedUsers = users.filter((u) => u.id !== userId)
-    setUsers(updatedUsers)
-    updateData({ ...data, users: updatedUsers })
+    try {
+      await deleteUser(userId)
+    } catch (err: any) {
+      alert(err.message || "Failed to delete user.")
+    }
   }
 
   const togglePasswordVisibility = (userId: string) => {
@@ -135,6 +147,22 @@ export function UserManagement() {
             <p className="text-muted-foreground">Access denied. Admin privileges required.</p>
           </CardContent>
         </Card>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Card><CardContent className="text-red-600">{error}</CardContent></Card>
       </div>
     )
   }
@@ -279,34 +307,34 @@ export function UserManagement() {
                     </div>
                   </>
                 )}
-              </div>
-
-              <div className="flex space-x-2 pt-2">
-                <Button size="sm" variant="outline" className="flex-1">
-                  <Edit className="h-4 w-4 mr-1" />
-                  Edit
-                </Button>
-                {user.id !== currentUser?.id && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button size="sm" variant="outline">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete User</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete {user.name}? This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleDelete(user.id)}>Delete</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
+                <div className="flex space-x-2 pt-2">
+                  {/* TODO: Wire up edit user dialog/modal using updateUser from useSupabaseData */}
+                  <Button size="sm" variant="outline" className="flex-1" disabled>
+                    <Edit className="h-4 w-4 mr-1" />
+                    Edit
+                  </Button>
+                  {user.id !== currentUser?.id && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="outline">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete User</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete {user.name}? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDelete(user.id)}>Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>

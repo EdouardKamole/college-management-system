@@ -27,10 +27,15 @@ export function formatDate(date: Date): string {
 }
 
 export function formatTime(time: string): string {
+  if (!time || typeof time !== "string" || !/^\d{1,2}:\d{2}$/.test(time)) return "";
   const [hours, minutes] = time.split(":");
   const hour = Number.parseInt(hours);
+  if (isNaN(hour)) return "";
+  const minute = Number.parseInt(minutes);
+  if (isNaN(minute)) return "";
   const date = new Date();
-  date.setHours(hour, Number.parseInt(minutes) || 0);
+  date.setHours(hour, minute, 0, 0);
+  if (isNaN(date.getTime())) return "";
   return formatDateFns(date, 'h:mm a');
 }
 

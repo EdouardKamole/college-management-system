@@ -122,7 +122,7 @@ export interface Schedule {
   time: string;
   endTime?: string;
   type: "class" | "exam" | "meeting" | "event";
-  courseId: string;
+  // courseId: string;
   room?: string;
   description?: string;
   instructorid?: string;

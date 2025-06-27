@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { useData } from "@/hooks/use-data"
+import { v4 as uuidv4 } from 'uuid' // For generating unique IDs for staff/admin
+import { useSupabaseData } from "@/hooks/use-supabase-data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,6 +23,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { UserPlus, CheckCircle, XCircle, GraduationCap, BookOpen, Shield } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 
 const UGANDA_DISTRICTS = [
   "Kampala",
@@ -61,7 +63,7 @@ const ACCEPTABLE_SUBJECTS = [
 ]
 
 export function UserRegistration() {
-  const { data, updateData } = useData()
+  const { data, loading: coursesLoading, error: coursesError } = useSupabaseData();
   const [isOpen, setIsOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("student")
 
@@ -75,22 +77,22 @@ export function UserRegistration() {
     pin: "",
 
     // Bio data
-    dateOfBirth: "",
-    homeDistrict: "",
-    studentTelNo: "",
-    fatherName: "",
-    fatherContact: "",
-    motherName: "",
-    motherContact: "",
-    nextOfKinName: "",
-    nextOfKinContact: "",
+    dateofbirth: "",
+    homedistrict: "",
+    studenttelno: "",
+    fathername: "",
+    fathercontact: "",
+    mothername: "",
+    mothercontact: "",
+    nextofkinname: "",
+    nextofkincontact: "",
 
     // Academic
-    educationLevel: "",
-    subjectCombination: [] as string[],
-    totalPoints: 0,
-    courseId: "",
-    dateOfEnrollment: new Date().toISOString().split("T")[0],
+    educationlevel: "",
+    subjectcombination: [] as string[],
+    totalpoints: 10,
+    courseid: "",
+    dateofenrollment: new Date().toISOString().split("T")[0],
   })
 
   // Staff/Admin form data
@@ -136,32 +138,32 @@ export function UserRegistration() {
   const handleSubjectChange = (subject: string, checked: boolean) => {
     setStudentData((prev) => ({
       ...prev,
-      subjectCombination: checked
-        ? [...prev.subjectCombination, subject]
-        : prev.subjectCombination.filter((s) => s !== subject),
+      subjectcombination: checked
+        ? [...prev.subjectcombination, subject]
+        : prev.subjectcombination.filter((s) => s !== subject),
     }))
   }
 
   const checkEligibility = () => {
-    if (!studentData.courseId || !studentData.educationLevel || studentData.subjectCombination.length === 0) {
+    if (!studentData.courseid || !studentData.educationlevel || studentData.subjectcombination.length === 0) {
       return
     }
 
-    const course = data.courses.find((c) => c.id === studentData.courseId)
+    const course = data.courses.find((c) => c.id === studentData.courseid)
     if (!course) return
 
     const reasons: string[] = []
     let eligible = true
 
     // Check education level
-    if (!course.requiredEducationLevel?.includes(studentData.educationLevel as any)) {
+    if (!course.requirededucationlevel?.includes(studentData.educationlevel as any)) {
       eligible = false
-      reasons.push(`Course requires ${course.requiredEducationLevel?.join(" or ")} level education`)
+      reasons.push(`Course requires ${course.requirededucationlevel?.join(" or ")} level education`)
     }
 
     // Check arts subjects
     const artsSubjects = ["History", "Literature", "Fine Art", "Music"]
-    const hasArts = studentData.subjectCombination.some((subject) => artsSubjects.includes(subject))
+    const hasArts = studentData.subjectcombination.some((subject) => artsSubjects.includes(subject))
 
     if (hasArts && course.category !== "technical") {
       eligible = false
@@ -170,16 +172,16 @@ export function UserRegistration() {
 
     // Check Physics or Math requirement
     const hasPhysicsOrMath =
-      studentData.subjectCombination.includes("Physics") || studentData.subjectCombination.includes("Mathematics")
+      studentData.subjectcombination.includes("Physics") || studentData.subjectcombination.includes("Mathematics")
     if (!hasPhysicsOrMath) {
       eligible = false
       reasons.push("Combination must include at least Physics or Mathematics")
     }
 
     // Check minimum points
-    if (studentData.totalPoints < (course.minimumPoints || 7)) {
+    if (studentData.totalpoints < (course.minimumpoints || 7)) {
       eligible = false
-      reasons.push(`Minimum ${course.minimumPoints || 7} points required (you have ${studentData.totalPoints})`)
+      reasons.push(`Minimum ${course.minimumpoints || 7} points required (you have ${studentData.totalpoints})`)
     }
 
     if (eligible) {
@@ -189,61 +191,99 @@ export function UserRegistration() {
     setEligibilityStatus({ eligible, reasons })
   }
 
-  const handleStudentSubmit = () => {
-    // Basic validation
-    if (
-      !studentData.name ||
-      !studentData.email ||
-      !studentData.username ||
-      !studentData.password ||
-      !studentData.pin ||
-      !studentData.courseId
-    ) {
-      alert("Please fill in all required fields")
+  const handleStudentSubmit = async () => {
+  // Basic validation
+  if (
+    !studentData.name ||
+    !studentData.email ||
+    !studentData.username ||
+    !studentData.password ||
+    !studentData.pin ||
+    !studentData.courseid
+  ) {
+    alert("Please fill in all required fields")
+    return
+  }
+
+  // Check eligibility
+  checkEligibility()
+  if (!eligibilityStatus.eligible) {
+    alert("Student does not meet course requirements")
+    return
+  }
+
+  // Check if username/email exists
+  const existingUser = data.users.find((u) => u.username === studentData.username || u.email === studentData.email)
+  if (existingUser) {
+    alert("Username or email already exists");
+    return;
+  }
+
+  try {
+    // Supabase signUp
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: studentData.email,
+      password: studentData.password,
+      options: {
+        data: {
+          username: studentData.username,
+          name: studentData.name,
+          role: 'student',
+        }
+      }
+    });
+    if (authError) {
+      alert(`Failed to create user account: ${authError.message}`);
+      return;
+    }
+    const supabaseUserId = authData.user?.id
+    if (!supabaseUserId) {
+      alert('Failed to get user ID from Supabase Auth')
       return
     }
 
-    // Check eligibility
-    checkEligibility()
-    if (!eligibilityStatus.eligible) {
-      alert("Student does not meet course requirements")
-      return
-    }
-
-    // Check if username/email exists
-    const existingUser = data.users.find((u) => u.username === studentData.username || u.email === studentData.email)
-    if (existingUser) {
-      alert("Username or email already exists")
-      return
-    }
-
+    // 2. Store user data in users table
     const newStudent = {
-      id: Date.now().toString(),
+      id: supabaseUserId,
       role: "student" as const,
       ...studentData,
-      academicStatus: "active" as const,
-      performancePrediction: "good" as const,
+      academicstatus: "active" as const,
+      performanceprediction: "good" as const,
     }
 
     // Add to course
     const updatedCourses = data.courses.map((course) =>
-      course.id === studentData.courseId
-        ? { ...course, studentIds: [...(course.studentIds || []), newStudent.id] }
+      course.id === studentData.courseid
+        ? { ...course, studentids: [...(course.studentids || []), newStudent.id] }
         : course,
     )
 
-    updateData({
-      ...data,
-      users: [...data.users, newStudent],
-      courses: updatedCourses,
-    })
+    // 3. Insert new student in users table
+    const { error: insertError } = await supabase.from('users').insert([{ ...newStudent }]);
+    if (insertError) {
+      alert(`Failed to save student: ${insertError.message}`);
+      return;
+    }
 
-    alert("Student registered successfully!")
-    resetForms()
-    setIsOpen(false)
+    // 4. Update course to add student ID
+    const courseToUpdate = updatedCourses.find(c => c.id === studentData.courseid);
+    if (courseToUpdate) {
+      const { error: courseError } = await supabase.from('courses').update({ studentids: courseToUpdate.studentids }).eq('id', courseToUpdate.id);
+      if (courseError) {
+        alert(`Failed to update course: ${courseError.message}`);
+        return;
+      }
+    }
+
+    alert("Student registered successfully!");
+    resetForms();
+    setIsOpen(false);
+  } catch (err: any) {
+    alert(`An error occurred: ${err.message}`)
   }
+}
 
-  const handleStaffSubmit = () => {
+  const handleStaffSubmit = async () => {
     // Basic validation
     if (
       !staffData.name ||
@@ -264,19 +304,44 @@ export function UserRegistration() {
       return
     }
 
-    const newStaff = {
-      id: Date.now().toString(),
-      ...staffData,
+    try {
+      // 1. Create Supabase Auth account
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: staffData.email,
+        password: staffData.password,
+        options: {
+          data: {
+            username: staffData.username,
+            name: staffData.name,
+            role: staffData.role,
+          }
+        }
+      });
+      if (authError) {
+        alert(`Failed to create staff account: ${authError.message}`);
+        return;
+      }
+      const supabaseUserId = authData.user?.id || uuidv4();
+      if (!supabaseUserId) {
+        alert('Failed to get user ID from Supabase Auth');
+        return;
+      }
+      // 2. Store user data in users table
+      const newStaff = {
+        id: supabaseUserId,
+        ...staffData,
+      };
+      const { error: insertError } = await supabase.from('users').insert([{ ...newStaff }]);
+      if (insertError) {
+        alert(`Failed to save staff: ${insertError.message}`);
+        return;
+      }
+      alert(`${staffData.role === "admin" ? "Administrator" : "Instructor"} registered successfully!`);
+      resetForms();
+      setIsOpen(false);
+    } catch (err: any) {
+      alert(`An error occurred: ${err.message}`);
     }
-
-    updateData({
-      ...data,
-      users: [...data.users, newStaff],
-    })
-
-    alert(`${staffData.role === "admin" ? "Administrator" : "Instructor"} registered successfully!`)
-    resetForms()
-    setIsOpen(false)
   }
 
   const resetForms = () => {
@@ -286,20 +351,20 @@ export function UserRegistration() {
       username: "",
       password: "",
       pin: "",
-      dateOfBirth: "",
-      homeDistrict: "",
-      studentTelNo: "",
-      fatherName: "",
-      fatherContact: "",
-      motherName: "",
-      motherContact: "",
-      nextOfKinName: "",
-      nextOfKinContact: "",
-      educationLevel: "",
-      subjectCombination: [],
-      totalPoints: 0,
-      courseId: "",
-      dateOfEnrollment: new Date().toISOString().split("T")[0],
+      dateofbirth: "",
+      homedistrict: "",
+      studenttelno: "",
+      fathername: "",
+      fathercontact: "",
+      mothername: "",
+      mothercontact: "",
+      nextofkinname: "",
+      nextofkincontact: "",
+      educationlevel: "",
+      subjectcombination: [],
+      totalpoints: 0,
+      courseid: "",
+      dateofenrollment: new Date().toISOString().split("T")[0],
     })
 
     setStaffData({
@@ -389,15 +454,15 @@ export function UserRegistration() {
                     <Input
                       id="student-dob"
                       type="date"
-                      value={studentData.dateOfBirth}
-                      onChange={(e) => setStudentData((prev) => ({ ...prev, dateOfBirth: e.target.value }))}
+                      value={studentData.dateofbirth}
+                      onChange={(e) => setStudentData((prev) => ({ ...prev, dateofbirth: e.target.value }))}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="student-district">Home District *</Label>
                     <Select
-                      value={studentData.homeDistrict}
-                      onValueChange={(value) => setStudentData((prev) => ({ ...prev, homeDistrict: value }))}
+                      value={studentData.homedistrict}
+                      onValueChange={(value) => setStudentData((prev) => ({ ...prev, homedistrict: value }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select district" />
@@ -415,8 +480,8 @@ export function UserRegistration() {
                     <Label htmlFor="student-phone">Phone Number *</Label>
                     <Input
                       id="student-phone"
-                      value={studentData.studentTelNo}
-                      onChange={(e) => setStudentData((prev) => ({ ...prev, studentTelNo: e.target.value }))}
+                      value={studentData.studenttelno}
+                      onChange={(e) => setStudentData((prev) => ({ ...prev, studenttelno: e.target.value }))}
                       placeholder="+256701234567"
                     />
                   </div>
@@ -434,8 +499,8 @@ export function UserRegistration() {
                       <Label htmlFor="father-name">Father's Name *</Label>
                       <Input
                         id="father-name"
-                        value={studentData.fatherName}
-                        onChange={(e) => setStudentData((prev) => ({ ...prev, fatherName: e.target.value }))}
+                        value={studentData.fathername}
+                        onChange={(e) => setStudentData((prev) => ({ ...prev, fathername: e.target.value }))}
                         placeholder="Father's name"
                       />
                     </div>
@@ -443,8 +508,8 @@ export function UserRegistration() {
                       <Label htmlFor="father-contact">Father's Contact *</Label>
                       <Input
                         id="father-contact"
-                        value={studentData.fatherContact}
-                        onChange={(e) => setStudentData((prev) => ({ ...prev, fatherContact: e.target.value }))}
+                        value={studentData.fathercontact}
+                        onChange={(e) => setStudentData((prev) => ({ ...prev, fathercontact: e.target.value }))}
                         placeholder="+256..."
                       />
                     </div>
@@ -454,8 +519,8 @@ export function UserRegistration() {
                       <Label htmlFor="mother-name">Mother's Name *</Label>
                       <Input
                         id="mother-name"
-                        value={studentData.motherName}
-                        onChange={(e) => setStudentData((prev) => ({ ...prev, motherName: e.target.value }))}
+                        value={studentData.mothername}
+                        onChange={(e) => setStudentData((prev) => ({ ...prev, mothername: e.target.value }))}
                         placeholder="Mother's name"
                       />
                     </div>
@@ -463,8 +528,8 @@ export function UserRegistration() {
                       <Label htmlFor="mother-contact">Mother's Contact *</Label>
                       <Input
                         id="mother-contact"
-                        value={studentData.motherContact}
-                        onChange={(e) => setStudentData((prev) => ({ ...prev, motherContact: e.target.value }))}
+                        value={studentData.mothercontact}
+                        onChange={(e) => setStudentData((prev) => ({ ...prev, mothercontact: e.target.value }))}
                         placeholder="+256..."
                       />
                     </div>
@@ -474,8 +539,8 @@ export function UserRegistration() {
                       <Label htmlFor="kin-name">Next of Kin *</Label>
                       <Input
                         id="kin-name"
-                        value={studentData.nextOfKinName}
-                        onChange={(e) => setStudentData((prev) => ({ ...prev, nextOfKinName: e.target.value }))}
+                        value={studentData.nextofkinname}
+                        onChange={(e) => setStudentData((prev) => ({ ...prev, nextofkinname: e.target.value }))}
                         placeholder="Next of kin name"
                       />
                     </div>
@@ -483,8 +548,8 @@ export function UserRegistration() {
                       <Label htmlFor="kin-contact">Kin Contact *</Label>
                       <Input
                         id="kin-contact"
-                        value={studentData.nextOfKinContact}
-                        onChange={(e) => setStudentData((prev) => ({ ...prev, nextOfKinContact: e.target.value }))}
+                        value={studentData.nextofkincontact}
+                        onChange={(e) => setStudentData((prev) => ({ ...prev, nextofkincontact: e.target.value }))}
                         placeholder="+256..."
                       />
                     </div>
@@ -503,8 +568,8 @@ export function UserRegistration() {
                   <div className="space-y-2">
                     <Label htmlFor="education-level">Education Level *</Label>
                     <Select
-                      value={studentData.educationLevel}
-                      onValueChange={(value) => setStudentData((prev) => ({ ...prev, educationLevel: value }))}
+                      value={studentData.educationlevel}
+                      onValueChange={(value) => setStudentData((prev) => ({ ...prev, educationlevel: value }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select level" />
@@ -522,21 +587,22 @@ export function UserRegistration() {
                     <Input
                       id="total-points"
                       type="number"
-                      min="0"
+                      min="1"
                       max="30"
-                      value={studentData.totalPoints}
+                      value={studentData.totalpoints}
                       onChange={(e) =>
-                        setStudentData((prev) => ({ ...prev, totalPoints: Number.parseInt(e.target.value) || 0 }))
+                        setStudentData((prev) => ({ ...prev, totalpoints: Number.isNaN(Number(e.target.value)) ? 0 : Number(e.target.value) }))
                       }
-                      placeholder="Enter points"
+                      placeholder="Enter total points (e.g., 15)"
                     />
+                    <small className="text-muted-foreground">Enter the student's total academic points (0-30).</small>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="course-selection">Course Selection *</Label>
                     <Select
-                      value={studentData.courseId}
+                      value={studentData.courseid}
                       onValueChange={(value) => {
-                        setStudentData((prev) => ({ ...prev, courseId: value }))
+                        setStudentData((prev) => ({ ...prev, courseid: value }))
                         setTimeout(checkEligibility, 100)
                       }}
                     >
@@ -544,11 +610,19 @@ export function UserRegistration() {
                         <SelectValue placeholder="Select course" />
                       </SelectTrigger>
                       <SelectContent>
-                        {data.courses.map((course) => (
-                          <SelectItem key={course.id} value={course.id}>
-                            {course.name}
-                          </SelectItem>
-                        ))}
+                        {coursesLoading ? (
+                          <div className="p-2 text-sm text-gray-500">Loading courses...</div>
+                        ) : coursesError ? (
+                          <div className="p-2 text-sm text-red-500">{coursesError}</div>
+                        ) : data.courses.length === 0 ? (
+                          <div className="p-2 text-sm text-gray-500">No courses available</div>
+                        ) : (
+                          data.courses.map((course) => (
+                            <SelectItem key={course.id} value={course.id}>
+                              {course.name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -561,7 +635,7 @@ export function UserRegistration() {
                       <div key={subject} className="flex items-center space-x-2">
                         <Checkbox
                           id={`subject-${subject}`}
-                          checked={studentData.subjectCombination.includes(subject)}
+                          checked={studentData.subjectcombination.includes(subject)}
                           onCheckedChange={(checked) => {
                             handleSubjectChange(subject, checked as boolean)
                             setTimeout(checkEligibility, 100)
@@ -575,11 +649,11 @@ export function UserRegistration() {
                   </div>
                 </div>
 
-                {studentData.subjectCombination.length > 0 && (
+                {studentData.subjectcombination.length > 0 && (
                   <div className="space-y-2">
                     <Label>Selected Subjects:</Label>
                     <div className="flex flex-wrap gap-2">
-                      {studentData.subjectCombination.map((subject) => (
+                      {studentData.subjectcombination.map((subject) => (
                         <Badge key={subject} variant="secondary">
                           {subject}
                         </Badge>
@@ -589,7 +663,7 @@ export function UserRegistration() {
                 )}
 
                 {/* Eligibility Status */}
-                {studentData.courseId && studentData.educationLevel && studentData.subjectCombination.length > 0 && (
+                {studentData.courseid && studentData.educationlevel && studentData.subjectcombination.length > 0 && (
                   <Alert className={eligibilityStatus.eligible ? "border-green-500" : "border-red-500"}>
                     <div className="flex items-center gap-2">
                       {eligibilityStatus.eligible ? (

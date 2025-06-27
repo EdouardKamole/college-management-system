@@ -36,6 +36,7 @@ export function Courses() {
     name: "",
     description: "",
     schedule: "",
+    studentids: [] as string[],
   });
 
   const canManageCourses = user?.role === "admin" || user?.role === "instructor";
@@ -63,7 +64,7 @@ export function Courses() {
         await addCourse({
           ...formData,
           instructorid: user?.id || "",
-          studentids: [],
+          studentids: formData.studentids,
           requirededucationlevel: ["UACE"],
           requiredsubjects: [],
           minimumpoints: 0,
@@ -72,7 +73,7 @@ export function Courses() {
           category: "technical",
         });
       }
-      setFormData({ name: "", description: "", schedule: "" });
+      setFormData({ name: "", description: "", schedule: "", studentids: [] });
       setEditingCourse(null);
       setIsDialogOpen(false);
     } catch (err) {
@@ -87,6 +88,7 @@ export function Courses() {
       name: course.name,
       description: course.description,
       schedule: course.schedule,
+      studentids: course.studentids ?? [],
     });
     setIsDialogOpen(true);
   };
@@ -120,7 +122,7 @@ export function Courses() {
               <Button
                 onClick={() => {
                   setEditingCourse(null);
-                  setFormData({ name: "", description: "", schedule: "" });
+                  setFormData({ name: "", description: "", schedule: "", studentids: [] });
                 }}
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -171,6 +173,25 @@ export function Courses() {
                     }
                     placeholder="e.g., Mon, Wed, Fri 09:00-10:30"
                   />
+                </div>
+                <div>
+                  <Label htmlFor="studentids">Enroll Students</Label>
+                  <select
+                    id="studentids"
+                    multiple
+                    className="w-full border rounded p-2"
+                    value={formData.studentids}
+                    onChange={e => {
+                      const selected = Array.from(e.target.selectedOptions, option => option.value)
+                      setFormData({ ...formData, studentids: selected })
+                    }}
+                  >
+                    {data.users.filter(u => u.role === "student").map(student => (
+                      <option key={student.id} value={student.id}>
+                        {student.name} ({student.username})
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex justify-end space-x-2">
                   <Button

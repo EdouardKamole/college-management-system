@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useData } from "@/hooks/use-data"
+import { useSupabaseData } from "@/hooks/use-supabase-data"
+import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -133,7 +134,26 @@ const ACCEPTABLE_COMBINATIONS = [
 ]
 
 export function StudentRegistration() {
-  const { data, updateData } = useData()
+  const { data, refetch, addUser, updateCourse } = useSupabaseData()
+  const [courses, setCourses] = useState<any[]>([])
+  const [coursesLoading, setCoursesLoading] = useState(true)
+  const [coursesError, setCoursesError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function fetchCourses() {
+      setCoursesLoading(true)
+      setCoursesError(null)
+      const { data: coursesData, error } = await supabase.from("courses").select("*")
+      if (error) {
+        setCoursesError("Failed to fetch courses")
+        setCourses([])
+      } else {
+        setCourses(coursesData || [])
+      }
+      setCoursesLoading(false)
+    }
+    fetchCourses()
+  }, [])
   const [isOpen, setIsOpen] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
   const [eligibilityStatus, setEligibilityStatus] = useState<{
@@ -178,9 +198,9 @@ export function StudentRegistration() {
     let eligible = true
 
     // Check education level
-    if (!course.requiredEducationLevel.includes(formData.educationLevel as any)) {
+    if (!course.requirededucationlevel.includes(formData.educationLevel as any)) {
       eligible = false
-      reasons.push(`Course requires ${course.requiredEducationLevel.join(" or ")} level education`)
+      reasons.push(`Course requires ${course.requirededucationlevel.join(" or ")} level education`)
     }
 
     // Check if combination has arts subjects (not eligible for science courses)
@@ -201,16 +221,16 @@ export function StudentRegistration() {
     }
 
     // Check required subjects for course
-    const missingSubjects = course.requiredSubjects.filter((subject) => !formData.subjectCombination.includes(subject))
+    const missingSubjects = course.requiredsubjects.filter((subject) => !formData.subjectCombination.includes(subject))
     if (missingSubjects.length > 0) {
       eligible = false
       reasons.push(`Course requires: ${missingSubjects.join(", ")}`)
     }
 
     // Check minimum points
-    if (formData.totalPoints < course.minimumPoints) {
+    if (formData.totalPoints < course.minimumpoints) {
       eligible = false
-      reasons.push(`Minimum ${course.minimumPoints} points required (you have ${formData.totalPoints})`)
+      reasons.push(`Minimum ${course.minimumpoints} points required (you have ${formData.totalPoints})`)
     }
 
     if (eligible) {
@@ -246,7 +266,7 @@ export function StudentRegistration() {
     }))
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!eligibilityStatus.eligible) {
       alert("Student does not meet course requirements")
       return
@@ -259,50 +279,77 @@ export function StudentRegistration() {
       return
     }
 
-    const newStudent = {
-      id: Date.now().toString(),
-      role: "student" as const,
-      ...formData,
-      academicStatus: "active" as const,
-      performancePrediction: "good" as const,
+    try {
+      // 1. Create Supabase Auth account
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            username: formData.username,
+            name: formData.name,
+            role: 'student',
+          }
+        }
+      })
+      if (authError) {
+        alert(`Failed to create user account: ${authError.message}`)
+        return
+      }
+      const supabaseUserId = authData.user?.id
+      if (!supabaseUserId) {
+        alert('Failed to get user ID from Supabase Auth')
+        return
+      }
+
+      // 2. Store user data in users table
+      const newStudent = {
+        id: supabaseUserId,
+        role: "student" as const,
+        ...formData,
+        academicStatus: "active" as const,
+        performancePrediction: "good" as const,
+      }
+
+      // Insert new student into users table
+      await addUser(newStudent)
+
+      // Add student to course
+      const courseToUpdate = data.courses.find((course) => course.id === formData.courseId)
+      if (courseToUpdate) {
+        await updateCourse(courseToUpdate.id, {
+          studentids: [...(courseToUpdate.studentids || []), newStudent.id],
+        })
+      }
+
+      await refetch()
+
+      // Reset form and close
+      setFormData({
+        name: "",
+        email: "",
+        username: "",
+        password: "",
+        pin: "",
+        dateOfBirth: "",
+        homeDistrict: "",
+        studentTelNo: "",
+        fatherName: "",
+        fatherContact: "",
+        motherName: "",
+        motherContact: "",
+        nextOfKinName: "",
+        nextOfKinContact: "",
+        educationLevel: "",
+        subjectCombination: [],
+        totalPoints: 0,
+        courseId: "",
+        dateOfEnrollment: new Date().toISOString().split("T")[0],
+      })
+      setIsOpen(false)
+    } catch (err: any) {
+      alert(`An error occurred: ${err.message}`)
     }
-
-    // Add student to course
-    const updatedCourses = data.courses.map((course) =>
-      course.id === formData.courseId ? { ...course, studentIds: [...course.studentIds, newStudent.id] } : course,
-    )
-
-    updateData({
-      ...data,
-      users: [...data.users, newStudent],
-      courses: updatedCourses,
-    })
-
-    // Reset form and close
-    setFormData({
-      name: "",
-      email: "",
-      username: "",
-      password: "",
-      pin: "",
-      dateOfBirth: "",
-      homeDistrict: "",
-      studentTelNo: "",
-      fatherName: "",
-      fatherContact: "",
-      motherName: "",
-      motherContact: "",
-      nextOfKinName: "",
-      nextOfKinContact: "",
-      educationLevel: "",
-      subjectCombination: [],
-      totalPoints: 0,
-      courseId: "",
-      dateOfEnrollment: new Date().toISOString().split("T")[0],
-    })
-    setCurrentStep(1)
-    setIsOpen(false)
-    alert("Student registered successfully!")
   }
 
   const nextStep = () => {
@@ -526,43 +573,25 @@ export function StudentRegistration() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div  className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="educationLevel">Education Level *</Label>
-                    <Select
-                      value={formData.educationLevel}
-                      onValueChange={(value: any) => setFormData((prev) => ({ ...prev, educationLevel: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select education level" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="UACE">UACE (Science based)</SelectItem>
-                        <SelectItem value="Diploma">Diploma (Science based)</SelectItem>
-                        <SelectItem value="Degree">Degree (Science based)</SelectItem>
-                        <SelectItem value="Master">Master Degree (Science based)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="totalPoints">Total Points *</Label>
-                    <Input
-                      id="totalPoints"
-                      type="number"
-                      min="0"
-                      max="30"
-                      value={formData.totalPoints}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, totalPoints: Number.parseInt(e.target.value) || 0 }))
-                      }
-                      placeholder="Enter total points"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Subject Combination *</Label>
+ <Select
+  value={formData.educationLevel}
+  onValueChange={(value: any) => setFormData((prev) => ({ ...prev, educationLevel: value }))} 
+  
+>
+  
+  <SelectTrigger>
+    <SelectValue placeholder="Select education level" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="UACE">UACE (Science based)</SelectItem>
+    <SelectItem value="Diploma">Diploma (Science based)</SelectItem>
+    <SelectItem value="Degree">Degree (Science based)</SelectItem>
+    <SelectItem value="Master">Master Degree (Science based)</SelectItem>
+  </SelectContent>
+</Select>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto border rounded p-3">
                     {ACCEPTABLE_SUBJECTS.map((subject) => (
                       <div key={subject} className="flex items-center space-x-2">
@@ -580,6 +609,20 @@ export function StudentRegistration() {
                   <p className="text-xs text-muted-foreground">
                     Select your subject combination. Must include at least Physics or Mathematics.
                   </p>
+                </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="totalPoints">Total Points *</Label>
+                  <Input
+                    id="totalPoints"
+                    type="number"
+                    value={formData.totalPoints}
+                    onChange={e => setFormData(prev => ({ ...prev, totalPoints: Number(e.target.value) }))}
+                    placeholder="Enter total points"
+                    min={10}
+                    required
+                  />
                 </div>
 
                 {formData.subjectCombination.length > 0 && (
@@ -618,17 +661,26 @@ export function StudentRegistration() {
                       onValueChange={(value) => setFormData((prev) => ({ ...prev, courseId: value }))}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select course" />
+                        <SelectValue placeholder={coursesLoading ? "Loading courses..." : "Select course"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {data.courses.map((course) => (
-                          <SelectItem key={course.id} value={course.id}>
-                            {course.name} ({course.duration} months)
-                          </SelectItem>
-                        ))}
+                        {coursesLoading ? (
+                          <div className="p-2 text-sm text-gray-500">Loading courses...</div>
+                        ) : coursesError ? (
+                          <div className="p-2 text-sm text-red-500">{coursesError}</div>
+                        ) : courses.length === 0 ? (
+                          <div className="p-2 text-sm text-gray-500">No courses available</div>
+                        ) : (
+                          courses.map((course) => (
+                            <SelectItem key={course.id} value={course.id}>
+                              {course.name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
+                  
                   <div className="space-y-2">
                     <Label htmlFor="dateOfEnrollment">Date of Enrollment *</Label>
                     <Input
@@ -659,13 +711,13 @@ export function StudentRegistration() {
                               <strong>Duration:</strong> {course.duration} months
                             </p>
                             <p>
-                              <strong>Pass Mark:</strong> {course.passMark}%
+                              <strong>Pass Mark:</strong> {course.passmark}%
                             </p>
                             <p>
-                              <strong>Required Subjects:</strong> {course.requiredSubjects.join(", ")}
+                              <strong>Required Subjects:</strong> {course.requiredsubjects.join(", ")}
                             </p>
                             <p>
-                              <strong>Minimum Points:</strong> {course.minimumPoints}
+                              <strong>Minimum Points:</strong> {course.minimumpoints}
                             </p>
                             <p>
                               <strong>Category:</strong> {course.category}

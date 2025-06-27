@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase"
 
 interface AuthContextType {
   user: User | null
-  login: (username: string, password: string, pin: string) => Promise<boolean>
+  login: (username: string, password: string) => Promise<boolean>
   logout: () => void
   isLoading: boolean
 }
@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkSession()
   }, [])
 
-  const login = async (username: string, password: string, pin: string): Promise<boolean> => {
+  const login = async (username: string, password: string): Promise<boolean> => {
     const { data: { user: authUser }, error: authError } = await supabase.auth.signInWithPassword({
       email: username,
       password: password
@@ -65,12 +65,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (authUser) {
-      // Verify PIN and get user data
+      // Fetch user data without PIN check
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('id', authUser.id)
-        .eq('pin', pin)
         .single()
 
       if (userError) {

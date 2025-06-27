@@ -14,7 +14,7 @@ import type {
   GradeCategory,
   CourseGrade,
   GradeScale,
-  Transcript,
+  // Transcript,
 } from "@/lib/data";
 
 interface AppData {
