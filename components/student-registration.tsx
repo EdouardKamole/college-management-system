@@ -44,7 +44,7 @@ interface StudentFormData {
   educationLevel: "UACE" | "Diploma" | "Degree" | "Master" | ""
   subjectCombination: string[]
   totalPoints: number
-  courseId: string
+  courseIds: string[]
   dateOfEnrollment: string
 }
 
@@ -175,19 +175,20 @@ export function StudentRegistration() {
     educationLevel: "",
     subjectCombination: [],
     totalPoints: 0,
-    courseId: "",
+    courseIds: [],
     dateOfEnrollment: new Date().toISOString().split("T")[0],
   })
 
-  // Check course eligibility
+  // Check course eligibility (use first selected course for eligibility)
   useEffect(() => {
-    if (formData.courseId && formData.educationLevel && formData.subjectCombination.length > 0) {
+    if (formData.courseIds.length > 0 && formData.educationLevel && formData.subjectCombination.length > 0) {
       checkEligibility()
     }
-  }, [formData.courseId, formData.educationLevel, formData.subjectCombination, formData.totalPoints])
+  }, [formData.courseIds, formData.educationLevel, formData.subjectCombination, formData.totalPoints])
 
   const checkEligibility = () => {
-    const course = data.courses.find((c) => c.id === formData.courseId)
+    // Use the first selected course for eligibility check
+    const course = data.courses.find((c) => c.id === formData.courseIds[0])
     if (!course) return
 
     const reasons: string[] = []
@@ -310,12 +311,14 @@ export function StudentRegistration() {
       // Insert new student into users table
       await addUser(newStudent)
 
-      // Add student to course
-      const courseToUpdate = data.courses.find((course) => course.id === formData.courseId)
-      if (courseToUpdate) {
-        await updateCourse(courseToUpdate.id, {
-          studentids: [...(courseToUpdate.studentids || []), newStudent.id],
-        })
+      // Add student to all selected courses
+      for (const courseId of formData.courseIds) {
+        const courseToUpdate = data.courses.find((course) => course.id === courseId)
+        if (courseToUpdate) {
+          await updateCourse(courseToUpdate.id, {
+            studentids: [...(courseToUpdate.studentids || []), newStudent.id],
+          })
+        }
       }
 
       await refetch()
@@ -337,7 +340,7 @@ export function StudentRegistration() {
         educationLevel: "",
         subjectCombination: [],
         totalPoints: 0,
-        courseId: "",
+        courseIds: [],
         dateOfEnrollment: new Date().toISOString().split("T")[0],
       })
       setIsOpen(false)
@@ -422,7 +425,6 @@ export function StudentRegistration() {
                     />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="homeDistrict">Home District *</Label>
@@ -453,7 +455,6 @@ export function StudentRegistration() {
                     />
                   </div>
                 </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address *</Label>
                   <Input
@@ -647,55 +648,70 @@ export function StudentRegistration() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="courseId">Course Selection *</Label>
-                    <Select
-                      value={formData.courseId}
-                      onValueChange={(value) => setFormData((prev) => ({ ...prev, courseId: value }))}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={coursesLoading ? "Loading courses..." : "Select course"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {coursesLoading ? (
-                          <div className="p-2 text-sm text-gray-500">Loading courses...</div>
-                        ) : coursesError ? (
-                          <div className="p-2 text-sm text-red-500">{coursesError}</div>
-                        ) : courses.length === 0 ? (
-                          <div className="p-2 text-sm text-gray-500">No courses available</div>
-                        ) : (
-                          courses.map((course) => (
-                            <SelectItem key={course.id} value={course.id}>
-                              {course.name}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="dateOfEnrollment">Date of Enrollment *</Label>
-                    <Input
-                      id="dateOfEnrollment"
-                      type="date"
-                      value={formData.dateOfEnrollment}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, dateOfEnrollment: e.target.value }))}
-                      required
-                    />
+                <div className="space-y-2">
+                  <Label>Select Courses to Enroll *</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-64 overflow-y-auto border rounded p-3">
+                    {courses.map((course) => (
+                      <div key={course.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={course.id}
+                          checked={formData.courseIds.includes(course.id)}
+                          onCheckedChange={(checked) => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              courseIds: checked
+                                ? [...prev.courseIds, course.id]
+                                : prev.courseIds.filter((id) => id !== course.id),
+                            }))
+                          }}
+                        />
+                        <Label htmlFor={course.id} className="text-sm">
+                          {course.name} ({course.duration} months)
+                        </Label>
+                      </div>
+                    ))}
                   </div>
                 </div>
-
-                {/* Course Details */}
-                {formData.courseId && (
+                {/* Show eligibility for the first selected course only for now */}
+                {formData.courseIds.length > 0 && formData.educationLevel && formData.subjectCombination.length > 0 && (
+                  <Alert className={eligibilityStatus.eligible ? "border-green-500" : "border-red-500"}>
+                    <div className="flex items-center gap-2">
+                      {eligibilityStatus.eligible ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      )}
+                      <AlertDescription>
+                        <strong>Eligibility Status:</strong>
+                        <ul className="mt-2 space-y-1">
+                          {eligibilityStatus.reasons.map((reason, index) => (
+                            <li key={index} className="text-sm">
+                              • {reason}
+                            </li>
+                          ))}
+                        </ul>
+                      </AlertDescription>
+                    </div>
+                  </Alert>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="dateOfEnrollment">Date of Enrollment *</Label>
+                  <Input
+                    id="dateOfEnrollment"
+                    type="date"
+                    value={formData.dateOfEnrollment}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, dateOfEnrollment: e.target.value }))}
+                    required
+                  />
+                </div>
+                {formData.courseIds.length > 0 && (
                   <Card>
                     <CardHeader>
                       <CardTitle className="text-lg">Course Details</CardTitle>
                     </CardHeader>
                     <CardContent>
                       {(() => {
-                        const course = data.courses.find((c) => c.id === formData.courseId)
+                        const course = data.courses.find((c) => c.id === formData.courseIds[0])
                         return course ? (
                           <div className="space-y-2">
                             <p>
@@ -721,29 +737,6 @@ export function StudentRegistration() {
                       })()}
                     </CardContent>
                   </Card>
-                )}
-
-                {/* Eligibility Check */}
-                {formData.courseId && formData.educationLevel && formData.subjectCombination.length > 0 && (
-                  <Alert className={eligibilityStatus.eligible ? "border-green-500" : "border-red-500"}>
-                    <div className="flex items-center gap-2">
-                      {eligibilityStatus.eligible ? (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-red-600" />
-                      )}
-                      <AlertDescription>
-                        <strong>Eligibility Status:</strong>
-                        <ul className="mt-2 space-y-1">
-                          {eligibilityStatus.reasons.map((reason, index) => (
-                            <li key={index} className="text-sm">
-                              • {reason}
-                            </li>
-                          ))}
-                        </ul>
-                      </AlertDescription>
-                    </div>
-                  </Alert>
                 )}
 
                 {/* Login Credentials */}

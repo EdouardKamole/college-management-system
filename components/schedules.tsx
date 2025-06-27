@@ -53,7 +53,7 @@ export function Schedules() {
   if (user?.role === "instructor") {
     userCourses = courses.filter((c: any) => c.instructorId === user.id)
   } else if (user?.role === "student") {
-    userCourses = courses.filter((c: any) => c.studentIds?.includes(user.id))
+    userCourses = courses.filter((c: any) => c.studentids?.includes(user.id))
   }
 
   // Generate calendar events from courses and schedules

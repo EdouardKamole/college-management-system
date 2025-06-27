@@ -55,7 +55,7 @@ export function Courses() {
   const instructors = data.users.filter((u) => u.role === "instructor");
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.description || !formData.schedule) return;
+    if (!formData.name || !formData.description || !formData.schedule) return alert("Please fill in all required fields");
 
     try {
       if (editingCourse) {
@@ -188,7 +188,7 @@ export function Courses() {
                   >
                     {data.users.filter(u => u.role === "student").map(student => (
                       <option key={student.id} value={student.id}>
-                        {student.name} ({student.username})
+                        {student.name} 
                       </option>
                     ))}
                   </select>

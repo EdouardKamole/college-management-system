@@ -87,7 +87,7 @@ export function UserRegistration() {
     educationlevel: "",
     subjectcombination: [] as string[],
     totalpoints: 10,
-    courseid: "",
+    courseid: [] as string[],
     dateofenrollment: new Date().toISOString().split("T")[0],
   })
 
@@ -139,141 +139,144 @@ export function UserRegistration() {
   }
 
   const checkEligibility = () => {
-    if (!studentData.courseid || !studentData.educationlevel || studentData.subjectcombination.length === 0) {
+    if (studentData.courseid.length === 0 || !studentData.educationlevel || studentData.subjectcombination.length === 0) {
       return
     }
 
-    const course = data.courses.find((c) => c.id === studentData.courseid)
-    if (!course) return
+    const reasons: string[] = [];
+    let eligible = true;
 
-    const reasons: string[] = []
-    let eligible = true
+    for (const courseId of studentData.courseid) {
+      const course = data.courses.find((c) => c.id === courseId);
+      if (!course) continue;
 
-    // Check education level
-    if (!course.requirededucationlevel?.includes(studentData.educationlevel as any)) {
-      eligible = false
-      reasons.push(`Course requires ${course.requirededucationlevel?.join(" or ")} level education`)
+      // Check education level
+      if (!course.requirededucationlevel?.includes(studentData.educationlevel as any)) {
+        eligible = false;
+        reasons.push(`Course "${course.name}": requires ${course.requirededucationlevel?.join(" or ")} level education`);
+      }
+
+      // Check arts subjects
+      const artsSubjects = ["History", "Literature", "Fine Art", "Music"];
+      const hasArts = studentData.subjectcombination.some((subject) => artsSubjects.includes(subject));
+      if (hasArts && course.category !== "technical") {
+        eligible = false;
+        reasons.push(`Course "${course.name}": students with arts combinations are not eligible for science-based courses`);
+      }
+
+      // Check Physics or Math requirement
+      const hasPhysicsOrMath =
+        studentData.subjectcombination.includes("Physics") || studentData.subjectcombination.includes("Mathematics");
+      if (!hasPhysicsOrMath) {
+        eligible = false;
+        reasons.push(`Course "${course.name}": combination must include at least Physics or Mathematics`);
+      }
+
+      // Check minimum points
+      if (studentData.totalpoints < (course.minimumpoints || 7)) {
+        eligible = false;
+        reasons.push(`Course "${course.name}": minimum ${course.minimumpoints || 7} points required (you have ${studentData.totalpoints})`);
+      }
     }
 
-    // Check arts subjects
-    const artsSubjects = ["History", "Literature", "Fine Art", "Music"]
-    const hasArts = studentData.subjectcombination.some((subject) => artsSubjects.includes(subject))
-
-    if (hasArts && course.category !== "technical") {
-      eligible = false
-      reasons.push("Students with arts combinations are not eligible for science-based courses")
+    if (eligible && studentData.courseid.length > 0) {
+      reasons.push("All requirements met - eligible for enrollment in all selected courses");
     }
 
-    // Check Physics or Math requirement
-    const hasPhysicsOrMath =
-      studentData.subjectcombination.includes("Physics") || studentData.subjectcombination.includes("Mathematics")
-    if (!hasPhysicsOrMath) {
-      eligible = false
-      reasons.push("Combination must include at least Physics or Mathematics")
-    }
-
-    // Check minimum points
-    if (studentData.totalpoints < (course.minimumpoints || 7)) {
-      eligible = false
-      reasons.push(`Minimum ${course.minimumpoints || 7} points required (you have ${studentData.totalpoints})`)
-    }
-
-    if (eligible) {
-      reasons.push("All requirements met - eligible for enrollment")
-    }
-
-    setEligibilityStatus({ eligible, reasons })
+    setEligibilityStatus({ eligible, reasons });
   }
 
   const handleStudentSubmit = async () => {
-  // Basic validation
-  if (
-    !studentData.name ||
-    !studentData.email ||
-    !studentData.password ||
-    !studentData.courseid
-  ) {
-    alert("Please fill in all required fields")
-    return
-  }
-
-  // Check eligibility
-  checkEligibility()
-  if (!eligibilityStatus.eligible) {
-    alert("Student does not meet course requirements")
-    return
-  }
-
-  // Check if username/email exists
-  const existingUser = data.users.find((u) =>  u.email === studentData.email)
-  if (existingUser) {
-    alert("Username or email already exists");
-    return;
-  }
-
-  try {
-    // Supabase signUp
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: studentData.email,
-      password: studentData.password,
-      options: {
-        data: {
-          name: studentData.name,
-          role: 'student',
-        }
-      }
-    });
-    if (authError) {
-      alert(`Failed to create user account: ${authError.message}`);
-      return;
-    }
-    const supabaseUserId = authData.user?.id
-    if (!supabaseUserId) {
-      alert('Failed to get user ID from Supabase Auth')
+    // Basic validation
+    if (
+      !studentData.name ||
+      !studentData.email ||
+      !studentData.password ||
+      studentData.courseid.length === 0
+    ) {
+      alert("Please fill in all required fields")
       return
     }
 
-    // 2. Store user data in users table
-    const { password, ...studentDataNoPassword } = studentData;
-    const newStudent = {
-      id: supabaseUserId,
-      role: "student" as const,
-      ...studentDataNoPassword,
-      academicstatus: "active" as const,
-      performanceprediction: "good" as const,
+    // Check eligibility
+    checkEligibility()
+    if (!eligibilityStatus.eligible) {
+      alert("Student does not meet course requirements")
+      return
     }
 
-    // Add to course
-    const updatedCourses = data.courses.map((course) =>
-      course.id === studentData.courseid
-        ? { ...course, studentids: [...(course.studentids || []), newStudent.id] }
-        : course,
-    )
-
-    // 3. Insert new student in users table
-    const { error: insertError } = await supabase.from('users').insert([newStudent]);
-    if (insertError) {
-      alert(`Failed to save student: ${insertError.message}`);
+    // Check if username/email exists
+    const existingUser = data.users.find((u) => u.email === studentData.email)
+    if (existingUser) {
+      alert("Username or email already exists");
       return;
     }
 
-    // 4. Update course to add student ID
-    const courseToUpdate = updatedCourses.find(c => c.id === studentData.courseid);
-    if (courseToUpdate) {
-      const { error: courseError } = await supabase.from('courses').update({ studentids: courseToUpdate.studentids }).eq('id', courseToUpdate.id);
-      if (courseError) {
-        alert(`Failed to update course: ${courseError.message}`);
+    try {
+      // Supabase signUp
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: studentData.email,
+        password: studentData.password,
+        options: {
+          data: {
+            name: studentData.name,
+            role: 'student',
+          }
+        }
+      });
+      if (authError) {
+        alert(`Failed to create user account: ${authError.message}`);
         return;
       }
-    }
+      const supabaseUserId = authData.user?.id
+      if (!supabaseUserId) {
+        alert('Failed to get user ID from Supabase Auth')
+        return
+      }
 
-    alert("Student registered successfully!");
-    resetForms();
-    setIsOpen(false);
-  } catch (err: any) {
-    alert(`An error occurred: ${err.message}`)
+      // 2. Store user data in users table
+      const { password, ...studentDataNoPassword } = studentData;
+      const newStudent = {
+        id: supabaseUserId,
+        role: "student" as const,
+        ...studentDataNoPassword,
+        academicstatus: "active" as const,
+        performanceprediction: "good" as const,
+      }
+
+      // Add to course
+      const updatedCourses = data.courses.map((course) =>
+        studentData.courseid.includes(course.id)
+          ? { ...course, studentids: [...(course.studentids || []), newStudent.id] }
+          : course,
+      )
+
+      // 3. Insert new student in users table
+      const { error: insertError } = await supabase.from('users').insert([newStudent]);
+      if (insertError) {
+        alert(`Failed to save student: ${insertError.message}`);
+        return;
+      }
+
+      // 4. Update course to add student ID
+      for (const courseId of studentData.courseid) {
+        const courseToUpdate = updatedCourses.find(c => c.id === courseId);
+        if (courseToUpdate) {
+          const { error: courseError } = await supabase.from('courses').update({ studentids: courseToUpdate.studentids }).eq('id', courseToUpdate.id);
+          if (courseError) {
+            alert(`Failed to update course: ${courseError.message}`);
+            return;
+          }
+        }
+      }
+
+      alert("Student registered successfully!");
+      resetForms();
+      setIsOpen(false);
+    } catch (err: any) {
+      alert(`An error occurred: ${err.message}`)
+    }
   }
-}
 
   const handleStaffSubmit = async () => {
     // Basic validation
@@ -316,8 +319,8 @@ export function UserRegistration() {
         return;
       }
 
-      const {password, ...staffDataNoPassword} = staffData;
-      
+      const { password, ...staffDataNoPassword } = staffData;
+
       // 2. Store user data in users table
       const newStaff = {
         id: supabaseUserId,
@@ -353,7 +356,7 @@ export function UserRegistration() {
       educationlevel: "",
       subjectcombination: [],
       totalpoints: 0,
-      courseid: "",
+      courseid: [],
       dateofenrollment: new Date().toISOString().split("T")[0],
     })
 
@@ -586,33 +589,37 @@ export function UserRegistration() {
                     <small className="text-muted-foreground">Enter the student's total academic points (0-30).</small>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="course-selection">Course Selection *</Label>
-                    <Select
-                      value={studentData.courseid}
-                      onValueChange={(value) => {
-                        setStudentData((prev) => ({ ...prev, courseid: value }))
-                        setTimeout(checkEligibility, 100)
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select course" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {coursesLoading ? (
-                          <div className="p-2 text-sm text-gray-500">Loading courses...</div>
-                        ) : coursesError ? (
-                          <div className="p-2 text-sm text-red-500">{coursesError}</div>
-                        ) : data.courses.length === 0 ? (
-                          <div className="p-2 text-sm text-gray-500">No courses available</div>
-                        ) : (
-                          data.courses.map((course) => (
-                            <SelectItem key={course.id} value={course.id}>
+                    <Label>Course Selection *</Label>
+                    <div className="grid gap-2 max-h-32 overflow-y-auto border rounded p-3">
+                      {coursesLoading ? (
+                        <div className="p-2 text-sm text-gray-500">Loading courses...</div>
+                      ) : coursesError ? (
+                        <div className="p-2 text-sm text-red-500">{coursesError}</div>
+                      ) : data.courses.length === 0 ? (
+                        <div className="p-2 text-sm text-gray-500">No courses available</div>
+                      ) : (
+                        data.courses.map((course) => (
+                          <div key={course.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`course-${course.id}`}
+                              checked={studentData.courseid.includes(course.id)}
+                              onCheckedChange={(checked) => {
+                                setStudentData((prev) => ({
+                                  ...prev,
+                                  courseid: checked
+                                    ? [...prev.courseid, course.id]
+                                    : prev.courseid.filter((id) => id !== course.id),
+                                }))
+                                setTimeout(checkEligibility, 100)
+                              }}
+                            />
+                            <Label htmlFor={`course-${course.id}`} className="text-sm">
                               {course.name}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                            </Label>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -651,7 +658,7 @@ export function UserRegistration() {
                 )}
 
                 {/* Eligibility Status */}
-                {studentData.courseid && studentData.educationlevel && studentData.subjectcombination.length > 0 && (
+                {studentData.courseid.length > 0 && studentData.educationlevel && studentData.subjectcombination.length > 0 && (
                   <Alert className={eligibilityStatus.eligible ? "border-green-500" : "border-red-500"}>
                     <div className="flex items-center gap-2">
                       {eligibilityStatus.eligible ? (

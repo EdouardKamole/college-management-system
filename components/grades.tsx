@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from "@/contexts/auth-context"
 import { useSupabaseData } from "@/hooks/use-supabase-data"
 import { Button } from "@/components/ui/button"
@@ -149,7 +150,7 @@ export function Grades() {
     }
 
     const newGrade: Grade = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       studentid: gradeForm.studentId,
       courseid: selectedCourse,
       category: gradeForm.category as any,

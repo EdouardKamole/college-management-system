@@ -273,10 +273,10 @@ export function UserManagement() {
                     </Button>
                   </div>
                 </div> */}
-                <div className="flex justify-between">
+                {/* <div className="flex justify-between">
                   <span className="text-muted-foreground">PIN:</span>
                   <span className="font-mono">{user.pin}</span>
-                </div>
+                </div> */}
                 {user.role === "student" && (
                   <>
                     <div className="flex justify-between">
