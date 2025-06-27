@@ -21,14 +21,16 @@ import { Plus, Download, BarChart3, FileText, Calculator, TrendingUp } from "luc
 import { calculateCourseGrade, calculateLetterGrade, calculateGPA } from "@/lib/grade-utils"
 import type { Grade } from "@/lib/data"
 
-export function Grades() {
-  const { user } = useAuth()
-  const { data, loading, error, refetch, addGrade, updateGrade, deleteGrade, addTranscript } = useSupabaseData()
-  const [activeTab, setActiveTab] = useState("overview")
-  const [selectedCourse, setSelectedCourse] = useState<string>("")
-  const [isAddGradeOpen, setIsAddGradeOpen] = useState(false)
-  const [isTranscriptOpen, setIsTranscriptOpen] = useState(false)
 
+export function Grades() {
+  const { user } = useAuth();
+  const { data, loading, error, refetch, addGrade, updateGrade, deleteGrade, addTranscript } = useSupabaseData();
+
+  // All hooks at the top
+  const [activeTab, setActiveTab] = useState("overview");
+  const [selectedCourse, setSelectedCourse] = useState<string>("");
+  const [isAddGradeOpen, setIsAddGradeOpen] = useState(false);
+  const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
   const [gradeForm, setGradeForm] = useState({
     studentId: "",
     category: "",
@@ -39,9 +41,9 @@ export function Grades() {
     feedback: "",
     late: false,
     excused: false,
-  })
+  });
 
-  const canManageGrades = user?.role === "admin" || user?.role === "instructor"
+  const canManageGrades = user?.role === "admin" || user?.role === "instructor";
   const defaultGradeScale = data?.gradeScales?.find((gs) => gs.id === "default") || {
     id: "default",
     name: "Default Scale",
@@ -50,15 +52,12 @@ export function Grades() {
       { letter: "B", minpercentage: 80, maxpercentage: 89, gpapoints: 3.0 },
       { letter: "C", minpercentage: 70, maxpercentage: 79, gpapoints: 2.0 },
       { letter: "D", minpercentage: 60, maxpercentage: 69, gpapoints: 1.0 },
-      { letter: "F", minpercentage: 0, maxpercentage: 59, gpapoints: 0.0 }
-    ]
-  }
+      { letter: "F", minpercentage: 0, maxpercentage: 59, gpapoints: 0.0 },
+    ],
+  };
 
-  // Filter courses based on user role
   const userCourses = useMemo(() => {
-    // Return empty array if data or courses is not loaded yet
     if (!data?.courses) return [];
-    
     try {
       if (user?.role === "admin") return [...(data.courses || [])];
       
@@ -222,7 +221,16 @@ export function Grades() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <>
+      {loading && (
+        <div className="fixed inset-0 flex items-center justify-center bg-white bg-opacity-60 z-50">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent mb-4" />
+            <span className="text-lg text-blue-700">Loading grades...</span>
+          </div>
+        </div>
+      )}
+      <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Grade Management</h1>
@@ -773,5 +781,6 @@ export function Grades() {
         </DialogContent>
       </Dialog>
     </div>
+    </>
   )
 }
