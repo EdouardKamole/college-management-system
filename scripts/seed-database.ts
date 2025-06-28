@@ -686,7 +686,7 @@ function validateUser(user: User): { isValid: boolean; errors: string[]; validat
     educationlevel: user.educationlevel || undefined,
     subjectcombination: user.subjectcombination || undefined,
     totalpoints: user.totalpoints || undefined,
-    courseid: user.courseid || undefined,
+    courseid: Array.isArray(user.courseid) ? user.courseid[0] : user.courseid || undefined,
     dateofenrollment: user.dateofenrollment || undefined,
     academicstatus: user.academicstatus || undefined,
     performanceprediction: user.performanceprediction || undefined
@@ -899,7 +899,7 @@ async function seedData(data: SeedData) {
         educationlevel: user.educationlevel || user.educationLevel || null,
         subjectcombination: user.subjectcombination || user.subjectCombination || [],
         totalpoints: user.totalpoints || user.totalPoints || 0,
-        courseid: user.courseid || user.courseId || null,
+        courseid: Array.isArray(user.courseid) ? user.courseid[0] : user.courseid || user.courseid || null,
         dateofenrollment: user.dateofenrollment || user.dateOfEnrollment ? new Date(user.dateofenrollment || user.dateOfEnrollment).toISOString().split('T')[0] : null,
         academicstatus: user.academicstatus || user.academicStatus || 'active',
         performanceprediction: user.performanceprediction || user.performancePrediction || null,

@@ -291,7 +291,11 @@ export function UserManagement() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Course:</span>
-                      <span className="text-xs">{getCourseName(user.courseId)}</span>
+                      <span className="text-xs">
+  {Array.isArray(user.courseId) && user.courseId.length > 0
+    ? user.courseId.map(getCourseName).join(', ')
+    : getCourseName(user.courseId)}
+</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Status:</span>

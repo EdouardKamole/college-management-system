@@ -16,7 +16,7 @@ export interface User {
   educationlevel?: "UACE" | "Diploma" | "Degree" | "Master";
   subjectcombination?: string[];
   totalpoints?: number;
-  courseid?: string;
+  courseId?: string[];
   dateofenrollment?: string;
   academicstatus?: "active" | "probation" | "suspended" | "graduated";
   performanceprediction?: "excellent" | "good" | "average" | "poor" | "at-risk";
