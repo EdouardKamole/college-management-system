@@ -184,24 +184,11 @@ export function Exams() {
   // Show loading skeleton while data is being fetched
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <Skeleton className="h-9 w-48 mb-2" />
-            <Skeleton className="h-4 w-64" />
-          </div>
-          {canManageExams && <Skeleton className="h-9 w-32" />}
+      <div className="fixed inset-0 flex items-center justify-center bg-white bg-opacity-60 z-50">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent mb-4" />
+          <span className="text-lg text-blue-700">Loading exams...</span>
         </div>
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList>
-            <Skeleton className="h-9 w-24 mx-1" />
-            <Skeleton className="h-9 w-24 mx-1" />
-            {canManageExams && <Skeleton className="h-9 w-24 mx-1" />}
-          </TabsList>
-          <TabsContent value="overview">
-            <ExamSkeleton />
-          </TabsContent>
-        </Tabs>
       </div>
     )
   }

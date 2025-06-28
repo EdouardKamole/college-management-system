@@ -163,12 +163,10 @@ export function Dashboard({ onModuleChange }: DashboardProps) {
   // Use mobile dashboard on mobile devices
   if (loading || isLoading) {
     return (
-      <div className="p-6 space-y-6">
-        <Skeleton className="h-8 w-64 mb-6" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-32" />
-          ))}
+      <div className="fixed inset-0 flex items-center justify-center bg-white bg-opacity-60 z-50">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent mb-4" />
+          <span className="text-lg text-blue-700">Loading dashboard...</span>
         </div>
       </div>
     );
