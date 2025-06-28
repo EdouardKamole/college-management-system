@@ -83,14 +83,14 @@ export function Login() {
 
           {error && <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</div>}
 
-          <div className="mt-6 text-xs text-gray-500 space-y-1">
+          {/* <div className="mt-6 text-xs text-gray-500 space-y-1">
             <p>
               <strong>Demo Credentials:</strong>
             </p>
             <p>Admin: admin/admin123</p>
             <p>Instructor: instructor1/inst123</p>
             <p>Student: student1/stud123</p>
-          </div>
+          </div> */}
         </CardContent>
       </Card>
     </div>
