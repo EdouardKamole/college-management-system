@@ -6,11 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "prepare": "husky install",
-    "db:seed": "ts-node --project ./scripts/tsconfig.json scripts/simple-seed.ts",
-    "db:reset": "ts-node --project ./scripts/tsconfig.json scripts/seed-database.ts --reset",
-    "db:setup": "ts-node --project ./scripts/tsconfig.json scripts/simple-seed.ts"
+    "lint": "next lint"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

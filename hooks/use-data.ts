@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import {
-  initialData,
   type User,
   type Course,
   type Exam,
