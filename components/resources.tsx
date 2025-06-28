@@ -145,6 +145,33 @@ export function Resources() {
     setIsUploading(true)
 
     try {
+      let fileUrl = editingResource?.fileUrl;
+      let fileName = selectedFile?.name;
+      let fileSize = selectedFile?.size;
+      let fileType = selectedFile?.type;
+
+      // 1. Upload file to Supabase Storage if a new file is selected
+      if (selectedFile) {
+        const uniquePath = `user-uploads/${uuidv4()}-${selectedFile.name}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('resources') // Make sure the 'resources' bucket exists in Supabase
+          .upload(uniquePath, selectedFile, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+        if (uploadError) {
+          alert('File upload failed: ' + uploadError.message);
+          setIsUploading(false);
+          return;
+        }
+        // 2. Get the public URL
+        const { data: publicUrlData } = supabase.storage
+          .from('resources')
+          .getPublicUrl(uploadData.path);
+        fileUrl = publicUrlData.publicUrl;
+      }
+
+      // 3. Prepare the resource object
       const newResource: Resource = {
         id: editingResource?.id || uuidv4(),
         title: formData.title,
@@ -160,11 +187,11 @@ export function Resources() {
           .split(",")
           .map((tag) => tag.trim())
           .filter(Boolean),
-        fileName: selectedFile?.name,
-        fileSize: selectedFile?.size,
-        fileType: selectedFile?.type,
-        fileUrl: selectedFile ? URL.createObjectURL(selectedFile) : editingResource?.fileUrl,
-      }
+        fileName,
+        fileSize,
+        fileType,
+        fileUrl,
+      };
 
       if (editingResource) {
         // Update existing resource in Supabase
@@ -224,12 +251,8 @@ export function Resources() {
 
   const handleDownload = async (resource: Resource) => {
     if (resource.fileUrl) {
-      const link = document.createElement("a");
-      link.href = resource.fileUrl;
-      link.download = resource.fileName || resource.title;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Open file in new tab
+      window.open(resource.fileUrl, '_blank', 'noopener,noreferrer');
 
       // Update download count in Supabase
       await supabase
