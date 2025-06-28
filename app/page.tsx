@@ -11,6 +11,7 @@ import { Exams } from "@/components/exams"
 import { Grades } from "@/components/grades"
 import { UserManagement } from "@/components/user-management"
 import { Resources } from "@/components/resources"
+import { Attendance } from "@/components/attendance"
 
 export default function Home() {
   const { user, isLoading } = useAuth()
@@ -39,12 +40,7 @@ export default function Home() {
       case "grades":
         return <Grades />
       case "attendance":
-        return (
-          <div className="p-6">
-            <h1 className="text-3xl font-bold">Attendance</h1>
-            <p className="text-muted-foreground">Attendance tracking module coming soon...</p>
-          </div>
-        )
+        return <Attendance />
       case "resources":
         return <Resources />
       case "schedules":

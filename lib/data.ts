@@ -92,6 +92,8 @@ export interface Attendance {
   courseid: string;
   date: string;
   status: string;
+  notes?: string; // Optional notes field for attendance records
+  markedBy?: string; // User who marked the attendance
 }
 
 export interface Resource {

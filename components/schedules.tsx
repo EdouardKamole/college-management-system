@@ -6,6 +6,7 @@ import { useSupabaseData } from "@/hooks/use-supabase-data"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ReloadButton } from "@/components/ui/reload-button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -397,16 +398,19 @@ export function Schedules() {
 
         <TabsContent value="today" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Today's Schedule</CardTitle>
-              <CardDescription>
-                {new Date().toLocaleDateString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Today's Schedule</CardTitle>
+                <CardDescription>
+                  {new Date().toLocaleDateString("en-US", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </CardDescription>
+              </div>
+              <ReloadButton onClick={refetch} loading={loading} aria-label="Reload schedules" />
             </CardHeader>
             <CardContent>
               {getEventsForDate(calendarEvents, formatDate(new Date())).length > 0 ? (

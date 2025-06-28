@@ -525,6 +525,45 @@ export function useSupabaseData() {
     }
   };
 
+  // Add attendance
+  const addAttendance = async (attendanceData: Omit<Attendance, "id">) => {
+    try {
+      const { data: newAttendance, error } = await supabase
+        .from("attendance")
+        .insert([attendanceData])
+        .select()
+        .single();
+      if (error) throw error;
+      setData((prev) => ({
+        ...prev,
+        attendance: [...prev.attendance, newAttendance],
+      }));
+      return newAttendance;
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : "Failed to add attendance");
+    }
+  };
+
+  // Update attendance
+  const updateAttendance = async (id: string, attendanceData: Partial<Attendance>) => {
+    try {
+      const { data: updatedAttendance, error } = await supabase
+        .from("attendance")
+        .update(attendanceData)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      setData((prev) => ({
+        ...prev,
+        attendance: prev.attendance.map((a) => (a.id === id ? updatedAttendance : a)),
+      }));
+      return updatedAttendance;
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : "Failed to update attendance");
+    }
+  };
+
   return {
     data,
     loading,
@@ -551,5 +590,7 @@ export function useSupabaseData() {
     updateGrade,
     deleteGrade,
     addTranscript,
+    addAttendance,
+    updateAttendance,
   };
 }
