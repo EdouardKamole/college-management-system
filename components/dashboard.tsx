@@ -255,12 +255,12 @@ export function Dashboard({ onModuleChange }: DashboardProps) {
     <div className="p-6 space-y-6">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-lg p-6">
-        <h1 className="text-2xl font-bold mb-2">
+        {/* <h1 className="text-2xl font-bold mb-2">
           {getGreeting()}, {user?.name}!
-        </h1>
-        <p className="text-blue-100">
+        </h1> */}
+        <h1 className="text-2xl font-bold">
           Welcome to the Uganda Air Force College Management System
-        </p>
+        </h1>
       </div>
 
       {/* Stats Cards */}

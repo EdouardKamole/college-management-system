@@ -254,13 +254,23 @@ export function StudentRegistration() {
     setFormData((prev) => ({ ...prev, username, password, pin }))
   }
 
+  const [subjectLimitMessage, setSubjectLimitMessage] = useState<string>("");
+
   const handleSubjectChange = (subject: string, checked: boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      subjectCombination: checked
-        ? [...prev.subjectCombination, subject]
-        : prev.subjectCombination.filter((s) => s !== subject),
-    }))
+    setFormData((prev) => {
+      // If checking and already 3 selected, block
+      if (checked && prev.subjectCombination.length >= 3) {
+        setSubjectLimitMessage("You can only select up to 3 subjects.");
+        return prev;
+      }
+      setSubjectLimitMessage("");
+      return {
+        ...prev,
+        subjectCombination: checked
+          ? [...prev.subjectCombination, subject]
+          : prev.subjectCombination.filter((s) => s !== subject),
+      };
+    });
   }
 
   const handleSubmit = async () => {
@@ -588,21 +598,28 @@ export function StudentRegistration() {
   </SelectContent>
 </Select>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto border rounded p-3">
-                    {ACCEPTABLE_SUBJECTS.map((subject) => (
-                      <div key={subject} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={subject}
-                          checked={formData.subjectCombination.includes(subject)}
-                          onCheckedChange={(checked) => handleSubjectChange(subject, checked as boolean)}
-                        />
-                        <Label htmlFor={subject} className="text-sm">
-                          {subject}
-                        </Label>
-                      </div>
-                    ))}
+                    {ACCEPTABLE_SUBJECTS.map((subject) => {
+                        const isChecked = formData.subjectCombination.includes(subject);
+                        const disableCheckbox =
+                          !isChecked && formData.subjectCombination.length >= 3;
+                        return (
+                          <div key={subject} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={subject}
+                              checked={isChecked}
+                              onCheckedChange={(checked) => handleSubjectChange(subject, checked as boolean)}
+                              disabled={disableCheckbox}
+                            />
+                            <Label htmlFor={subject} className="text-sm">
+                              {subject}
+                            </Label>
+                          </div>
+                        );
+                      })}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Select your subject combination. Must include at least Physics or Mathematics.
+                    Select your subject combination. Must include at least Physics or Mathematics.<br/>
+                    <span className={subjectLimitMessage ? "text-red-500" : ""}>{subjectLimitMessage}</span>
                   </p>
                 </div>
                 </div>
