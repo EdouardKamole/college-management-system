@@ -259,7 +259,7 @@ export function Dashboard({ onModuleChange }: DashboardProps) {
           {getGreeting()}, {user?.name}!
         </h1> */}
         <h1 className="text-2xl font-bold">
-          Welcome to the Uganda Air Force College Management System
+          Welcome to the Uganda Air Force College Intelligent College Management System
         </h1>
       </div>
 
