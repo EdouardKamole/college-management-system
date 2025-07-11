@@ -1,33 +1,51 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { v4 as uuidv4 } from "uuid"
-import { useAuth } from "@/contexts/auth-context"
-import { supabase } from "@/lib/supabase"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
-import { Plus, Trash2, GripVertical, Save, Eye } from "lucide-react"
-import type { Exam, Question, Course } from "@/lib/data"
+import { useState, useEffect } from "react";
+import { v4 as uuidv4 } from "uuid";
+import { useAuth } from "@/contexts/auth-context";
+import { supabase } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import { Plus, Trash2, GripVertical, Save, Eye } from "lucide-react";
+import type { Exam, Question, Course } from "@/lib/data";
 
 interface ExamCreatorProps {
-  exam?: Exam | null
-  onSave: (exam: Exam) => void
-  onCancel: () => void
+  exam?: Exam | null;
+  onSave: (exam: Exam) => void;
+  onCancel: () => void;
 }
 
 export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
-  const { user } = useAuth()
-  const [courses, setCourses] = useState<Course[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [formData, setFormData] = useState<Omit<Exam, 'id' | 'questions'> & { questions: Question[] }>({
+  const { user } = useAuth();
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState<
+    Omit<Exam, "id" | "questions"> & { questions: Question[] }
+  >({
     name: "",
     description: "",
     instructions: "",
@@ -43,39 +61,42 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
     status: "draft",
     questions: [],
     showresults: true,
-    randomizequestions: false
-  })
-  const [questions, setQuestions] = useState<Question[]>([])
+    randomizequestions: false,
+  });
+  const [questions, setQuestions] = useState<Question[]>([]);
 
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        setLoading(true)
-        let query = supabase.from('courses').select('*')
-        
-        if (user?.role === 'instructor') {
-          query = query.eq('instructorid', user.id)
+        setLoading(true);
+        let query = supabase.from("courses").select("*");
+
+        if (user?.role === "instructor") {
+          query = query.eq("instructorid", user.id);
         }
-        
-        const { data: courses, error } = await query
-        
-        if (error) throw error
-        
-        setCourses(courses || [])
+
+        const { data: courses, error } = await query;
+
+        if (error) throw error;
+
+        setCourses(courses || []);
       } catch (err) {
-        console.error('Error fetching courses:', err)
-        setError('Failed to load courses')
+        console.error("Error fetching courses:", err);
+        setError("Failed to load courses");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    
-    fetchCourses()
-  }, [user])
-  
-  const userCourses = courses.filter((course) => 
-    user?.role === "admin" || course.instructorid === user?.id || user?.role === "instructor"
-  )
+    };
+
+    fetchCourses();
+  }, [user]);
+
+  const userCourses = courses.filter(
+    (course) =>
+      user?.role === "admin" ||
+      course.instructorid === user?.id ||
+      user?.role === "instructor"
+  );
 
   useEffect(() => {
     if (exam) {
@@ -96,10 +117,10 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
         questions: exam.questions || [],
         showresults: exam.showresults !== undefined ? exam.showresults : true,
         randomizequestions: exam.randomizequestions,
-      })
-      setQuestions(exam.questions)
+      });
+      setQuestions(exam.questions);
     }
-  }, [exam])
+  }, [exam]);
 
   const [questionType, setQuestionType] = useState("");
 
@@ -110,48 +131,63 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
       question: "",
       points: 10,
       required: true,
-      ...(type === "multiple-choice" && { options: ["", "", "", ""], correctAnswer: 0 }),
-      ...(type === "true-false" && { options: ["True", "False"], correctAnswer: 0 }),
+      ...(type === "multiple-choice" && {
+        options: ["", "", "", ""],
+        correctanswer: 0,
+      }),
+      ...(type === "true-false" && {
+        options: ["True", "False"],
+        correctanswer: 0,
+      }),
     };
     setQuestions([...questions, newQuestion]);
     setQuestionType(""); // Reset dropdown after adding
     // Focus the new question input after it's rendered
     setTimeout(() => {
       const newIndex = questions.length;
-      const questionInput = document.getElementById(`question-${newIndex}`) as HTMLTextAreaElement;
+      const questionInput = document.getElementById(
+        `question-${newIndex}`
+      ) as HTMLTextAreaElement;
       if (questionInput) {
         questionInput.focus();
       }
     }, 0);
-  }
+  };
 
   const updateQuestion = (index: number, updates: Partial<Question>) => {
-    const updatedQuestions = questions.map((q, i) => (i === index ? { ...q, ...updates } : q))
-    setQuestions(updatedQuestions)
-  }
+    const updatedQuestions = questions.map((q, i) =>
+      i === index ? { ...q, ...updates } : q
+    );
+    setQuestions(updatedQuestions);
+  };
 
   const removeQuestion = (index: number) => {
-    setQuestions(questions.filter((_, i) => i !== index))
-  }
+    setQuestions(questions.filter((_, i) => i !== index));
+  };
 
   const moveQuestion = (index: number, direction: "up" | "down") => {
-    const newQuestions = [...questions]
-    const targetIndex = direction === "up" ? index - 1 : index + 1
+    const newQuestions = [...questions];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
 
     if (targetIndex >= 0 && targetIndex < questions.length) {
-      ;[newQuestions[index], newQuestions[targetIndex]] = [newQuestions[targetIndex], newQuestions[index]]
-      setQuestions(newQuestions)
+      [newQuestions[index], newQuestions[targetIndex]] = [
+        newQuestions[targetIndex],
+        newQuestions[index],
+      ];
+      setQuestions(newQuestions);
     }
-  }
+  };
 
   const calculateTotalPoints = () => {
-    return questions.reduce((sum, q) => sum + q.points, 0)
-  }
+    return questions.reduce((sum, q) => sum + q.points, 0);
+  };
 
   const handleSave = async (status: "draft" | "published") => {
     if (!formData.name || !formData.courseid || questions.length === 0) {
-      alert("Please fill in all required fields and add at least one question.")
-      return
+      alert(
+        "Please fill in all required fields and add at least one question."
+      );
+      return;
     }
 
     try {
@@ -163,12 +199,12 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
         totalpoints: calculateTotalPoints(),
         createdby: user?.id || "",
         createdat: new Date().toISOString(),
-      }
-      onSave(examData)
+      };
+      onSave(examData);
     } catch (error) {
-      console.error("Error saving exam:", error)
+      console.error("Error saving exam:", error);
     }
-  }
+  };
 
   const renderQuestionEditor = (question: Question, index: number) => {
     return (
@@ -181,7 +217,12 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
               <Badge variant="outline">{question.type}</Badge>
             </div>
             <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm" onClick={() => moveQuestion(index, "up")} disabled={index === 0}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => moveQuestion(index, "up")}
+                disabled={index === 0}
+              >
                 ↑
               </Button>
               <Button
@@ -209,47 +250,59 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
             <Textarea
               id={`question-${index}`}
               value={question.question}
-              onChange={(e) => updateQuestion(index, { question: e.target.value })}
+              onChange={(e) =>
+                updateQuestion(index, { question: e.target.value })
+              }
               placeholder="Enter your question here..."
               className="min-h-[100px]"
             />
           </div>
 
-          {(question.type === "multiple-choice" || question.type === "true-false") && (
+          {(question.type === "multiple-choice" ||
+            question.type === "true-false") && (
             <div>
               <Label>Answer Options</Label>
               <div className="space-y-2 mt-2">
                 {question.options?.map((option, optionIndex) => (
-                  <div key={optionIndex} className="flex items-center space-x-2">
+                  <div
+                    key={optionIndex}
+                    className="flex items-center space-x-2"
+                  >
                     <input
                       type="radio"
                       name={`correct-${index}`}
                       checked={question.correctanswer === optionIndex}
-                      onChange={() => updateQuestion(index, { correctanswer: optionIndex })}
+                      onChange={() =>
+                        updateQuestion(index, { correctanswer: optionIndex })
+                      }
                       className="w-4 h-4"
                     />
                     <Input
                       value={option}
                       onChange={(e) => {
-                        const newOptions = [...(question.options || [])]
-                        newOptions[optionIndex] = e.target.value
-                        updateQuestion(index, { options: newOptions })
+                        const newOptions = [...(question.options || [])];
+                        newOptions[optionIndex] = e.target.value;
+                        updateQuestion(index, { options: newOptions });
                       }}
                       placeholder={`Option ${optionIndex + 1}`}
                       disabled={question.type === "true-false"}
                     />
-                    {question.type === "multiple-choice" && question.options && question.options.length > 2 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const newOptions = question.options?.filter((_, i) => i !== optionIndex)
-                          updateQuestion(index, { options: newOptions })
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+                    {question.type === "multiple-choice" &&
+                      question.options &&
+                      question.options.length > 2 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const newOptions = question.options?.filter(
+                              (_, i) => i !== optionIndex
+                            );
+                            updateQuestion(index, { options: newOptions });
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                   </div>
                 ))}
                 {question.type === "multiple-choice" && (
@@ -257,8 +310,8 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const newOptions = [...(question.options || []), ""]
-                      updateQuestion(index, { options: newOptions })
+                      const newOptions = [...(question.options || []), ""];
+                      updateQuestion(index, { options: newOptions });
                     }}
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -277,7 +330,11 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
                 type="number"
                 min="1"
                 value={question.points}
-                onChange={(e) => updateQuestion(index, { points: Number.parseInt(e.target.value) || 1 })}
+                onChange={(e) =>
+                  updateQuestion(index, {
+                    points: Number.parseInt(e.target.value) || 1,
+                  })
+                }
               />
             </div>
             <div className="flex items-center space-x-2 pt-6">
@@ -285,7 +342,9 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
                 type="checkbox"
                 id={`required-${index}`}
                 checked={question.required}
-                onChange={(e) => updateQuestion(index, { required: e.target.checked })}
+                onChange={(e) =>
+                  updateQuestion(index, { required: e.target.checked })
+                }
                 className="w-4 h-4"
               />
               <Label htmlFor={`required-${index}`}>Required</Label>
@@ -293,8 +352,8 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
           </div>
         </CardContent>
       </Card>
-    )
-  }
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -311,7 +370,9 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
               <Input
                 id="name"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 placeholder="Enter exam name"
               />
             </div>
@@ -320,10 +381,10 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
               <Select
                 value={formData.courseid}
                 onValueChange={(value) => {
-                  console.log('Selected course ID:', value);
-                  setFormData(prev => ({
+                  console.log("Selected course ID:", value);
+                  setFormData((prev) => ({
                     ...prev,
-                    courseid: value
+                    courseid: value,
                   }));
                 }}
               >
@@ -346,7 +407,9 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
             <Textarea
               id="description"
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
               placeholder="Brief description of the exam"
             />
           </div>
@@ -356,7 +419,9 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
             <Textarea
               id="instructions"
               value={formData.instructions}
-              onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, instructions: e.target.value })
+              }
               placeholder="Detailed instructions for students"
               className="min-h-[100px]"
             />
@@ -368,39 +433,47 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
       <Card>
         <CardHeader>
           <CardTitle>Schedule & Settings</CardTitle>
-          <CardDescription>When and how the exam will be conducted</CardDescription>
+          <CardDescription>
+            When and how the exam will be conducted
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
             <div>
               <Label htmlFor="date">Exam Date</Label>
-<Input
-  id="date"
-  type="date"
-  value={formData.date}
-  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-  className="text-black dark:text-white"
-/>
+              <Input
+                id="date"
+                type="date"
+                value={formData.date}
+                onChange={(e) =>
+                  setFormData({ ...formData, date: e.target.value })
+                }
+                className="text-black dark:text-white"
+              />
             </div>
             <div>
               <Label htmlFor="startTime">Start Time</Label>
-<Input
-  id="startTime"
-  type="time"
-  value={formData.starttime}
-  onChange={(e) => setFormData({ ...formData, starttime: e.target.value })}
-  className="text-black dark:text-white"
-/>
+              <Input
+                id="startTime"
+                type="time"
+                value={formData.starttime}
+                onChange={(e) =>
+                  setFormData({ ...formData, starttime: e.target.value })
+                }
+                className="text-black dark:text-white"
+              />
             </div>
             <div>
               <Label htmlFor="endTime">End Time</Label>
-<Input
-  id="endTime"
-  type="time"
-  value={formData.endtime}
-  onChange={(e) => setFormData({ ...formData, endtime: e.target.value })}
-  className="text-black dark:text-white"
-/>
+              <Input
+                id="endTime"
+                type="time"
+                value={formData.endtime}
+                onChange={(e) =>
+                  setFormData({ ...formData, endtime: e.target.value })
+                }
+                className="text-black dark:text-white"
+              />
             </div>
           </div>
 
@@ -412,7 +485,12 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
                 type="number"
                 min="1"
                 value={formData.duration}
-                onChange={(e) => setFormData({ ...formData, duration: Number.parseInt(e.target.value) || 60 })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    duration: Number.parseInt(e.target.value) || 60,
+                  })
+                }
               />
             </div>
             <div>
@@ -423,7 +501,12 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
                 min="1"
                 max="5"
                 value={formData.attempts}
-                onChange={(e) => setFormData({ ...formData, attempts: Number.parseInt(e.target.value) || 1 })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    attempts: Number.parseInt(e.target.value) || 1,
+                  })
+                }
               />
             </div>
           </div>
@@ -434,7 +517,9 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
                 type="checkbox"
                 id="showResults"
                 checked={formData.showresults}
-                onChange={(e) => setFormData({ ...formData, showresults: e.target.checked })}
+                onChange={(e) =>
+                  setFormData({ ...formData, showresults: e.target.checked })
+                }
                 className="w-4 h-4"
               />
               <Label htmlFor="showResults">Show results to students</Label>
@@ -444,10 +529,17 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
                 type="checkbox"
                 id="randomizeQuestions"
                 checked={formData.randomizequestions}
-                onChange={(e) => setFormData({ ...formData, randomizequestions: e.target.checked })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    randomizequestions: e.target.checked,
+                  })
+                }
                 className="w-4 h-4"
               />
-              <Label htmlFor="randomizeQuestions">Randomize question order</Label>
+              <Label htmlFor="randomizeQuestions">
+                Randomize question order
+              </Label>
             </div>
           </div>
         </CardContent>
@@ -469,7 +561,9 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
                   <SelectValue placeholder="Add Question" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
+                  <SelectItem value="multiple-choice">
+                    Multiple Choice
+                  </SelectItem>
                   <SelectItem value="true-false">True/False</SelectItem>
                   <SelectItem value="short-answer">Short Answer</SelectItem>
                   <SelectItem value="essay">Essay</SelectItem>
@@ -481,10 +575,17 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
         <CardContent>
           {questions.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <p>No questions added yet. Use the dropdown above to add your first question.</p>
+              <p>
+                No questions added yet. Use the dropdown above to add your first
+                question.
+              </p>
             </div>
           ) : (
-            <div className="space-y-4">{questions.map((question, index) => renderQuestionEditor(question, index))}</div>
+            <div className="space-y-4">
+              {questions.map((question, index) =>
+                renderQuestionEditor(question, index)
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -495,13 +596,19 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
           Cancel
         </Button>
         <div className="flex space-x-2">
-          <Button variant="outline" onClick={() => handleSave("draft")} disabled={!formData.name || !formData.courseid}>
+          <Button
+            variant="outline"
+            onClick={() => handleSave("draft")}
+            disabled={!formData.name || !formData.courseid}
+          >
             <Save className="h-4 w-4 mr-2" />
             Save as Draft
           </Button>
           <Button
             onClick={() => handleSave("published")}
-            disabled={!formData.name || !formData.courseid || questions.length === 0}
+            disabled={
+              !formData.name || !formData.courseid || questions.length === 0
+            }
           >
             <Eye className="h-4 w-4 mr-2" />
             Publish Exam
@@ -509,5 +616,5 @@ export function ExamCreator({ exam, onSave, onCancel }: ExamCreatorProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

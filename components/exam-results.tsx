@@ -1,47 +1,83 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { BarChart3, Clock, User, CheckCircle, XCircle, AlertCircle } from "lucide-react"
-import type { Exam, ExamSubmission, User as UserType } from "@/lib/data"
+import { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  BarChart3,
+  Clock,
+  User,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+} from "lucide-react";
+import type { Exam, ExamSubmission, User as UserType } from "@/lib/data";
 
 interface ExamResultsProps {
-  exam: Exam
-  submissions: ExamSubmission[]
-  currentUser: UserType | null
-  onClose: () => void
+  exam: Exam;
+  submissions: ExamSubmission[];
+  currentUser: UserType | null;
+  onClose: () => void;
 }
 
-export function ExamResults({ exam, submissions, currentUser, onClose }: ExamResultsProps) {
-  const userSubmission = submissions.find((s) => 
-    s && s.studentid && currentUser?.id && s.studentid.toString() === currentUser.id.toString()
-  )
-  const [selectedSubmission, setSelectedSubmission] = useState<ExamSubmission | null>(userSubmission || null)
-  const [gradingScores, setGradingScores] = useState<{ [questionId: string]: number }>({})
-  const [gradingFeedback, setGradingFeedback] = useState<{ [questionId: string]: string }>({})
+export function ExamResults({
+  exam,
+  submissions,
+  currentUser,
+  onClose,
+}: ExamResultsProps) {
+  const userSubmission = submissions.find(
+    (s) =>
+      s &&
+      s.studentid &&
+      currentUser?.id &&
+      s.studentid.toString() === currentUser.id.toString()
+  );
+  const [selectedSubmission, setSelectedSubmission] =
+    useState<ExamSubmission | null>(userSubmission || null);
+  const [gradingScores, setGradingScores] = useState<{
+    [questionId: string]: number;
+  }>({});
+  const [gradingFeedback, setGradingFeedback] = useState<{
+    [questionId: string]: string;
+  }>({});
 
-  const isInstructor = currentUser?.role === "admin" || currentUser?.role === "instructor"
+  const isInstructor =
+    currentUser?.role === "admin" || currentUser?.role === "instructor";
 
   const calculateStats = () => {
     const completedSubmissions = submissions.filter(
-      (s) => s && s.status === "graded" && s.score !== undefined && s.maxscore && s.maxscore > 0
-    )
-    
-    if (completedSubmissions.length === 0) return null
+      (s) =>
+        s &&
+        s.status === "graded" &&
+        s.score !== undefined &&
+        s.maxscore &&
+        s.maxscore > 0
+    );
+
+    if (completedSubmissions.length === 0) return null;
 
     const scores = completedSubmissions.map((s) => {
       const score = s.score || 0;
       const maxScore = s.maxscore || 1; // Prevent division by zero
       return (score / maxScore) * 100;
     });
-    
-    const average = scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0;
+
+    const average =
+      scores.length > 0
+        ? scores.reduce((sum, score) => sum + score, 0) / scores.length
+        : 0;
     const highest = scores.length > 0 ? Math.max(...scores) : 0;
     const lowest = scores.length > 0 ? Math.min(...scores) : 0;
 
@@ -51,27 +87,48 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
       average: Math.round(average * 100) / 100,
       highest: Math.round(highest * 100) / 100,
       lowest: Math.round(lowest * 100) / 100,
-    }
-  }
+    };
+  };
 
-  const stats = calculateStats()
+  const stats = calculateStats();
 
-  const renderQuestionResult = (question: any, index: number, submission: ExamSubmission) => {
+  const renderQuestionResult = (
+    question: any,
+    index: number,
+    submission: ExamSubmission
+  ) => {
     // Find the answer for this question in the submission
-    const answerObj = Array.isArray(submission.answers) 
+    const answerObj = Array.isArray(submission.answers)
       ? submission.answers.find((a: any) => a.questionId === question.id)
       : null;
     const answer = answerObj?.answer;
-    // Handle both string and number correct answers
-    const correctAnswer = question.correctAnswer?.toString() || '';
-    const studentAnswer = answer?.toString() || '';
-    
-    const isCorrect = correctAnswer && studentAnswer 
-      ? correctAnswer.toLowerCase() === studentAnswer.toLowerCase()
-      : false;
-      
-    const needsGrading = (question.type === "short-answer" || question.type === "essay") && 
-      submission.status === "submitted" && 
+
+    // Use correctanswer (lowercase) and fallback to correctAnswer for legacy
+    const correctAnswerIndex =
+      typeof question.correctanswer !== "undefined"
+        ? question.correctanswer
+        : question.correctAnswer;
+
+    // For MCQ/TF, compare as numbers
+    let isCorrect = false;
+    if (
+      (question.type === "multiple-choice" || question.type === "true-false") &&
+      typeof correctAnswerIndex !== "undefined" &&
+      typeof answer !== "undefined"
+    ) {
+      isCorrect = Number(answer) === Number(correctAnswerIndex);
+    } else if (
+      (question.type === "short-answer" || question.type === "essay") &&
+      typeof correctAnswerIndex === "string" &&
+      typeof answer === "string"
+    ) {
+      isCorrect =
+        correctAnswerIndex.trim().toLowerCase() === answer.trim().toLowerCase();
+    }
+
+    const needsGrading =
+      (question.type === "short-answer" || question.type === "essay") &&
+      submission.status === "submitted" &&
       (!answerObj || answerObj.score === undefined);
 
     return (
@@ -83,7 +140,11 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
               <Badge variant="outline">{question.points} points</Badge>
               {question.correctAnswer !== undefined && (
                 <Badge variant={isCorrect ? "default" : "destructive"}>
-                  {isCorrect ? <CheckCircle className="h-3 w-3 mr-1" /> : <XCircle className="h-3 w-3 mr-1" />}
+                  {isCorrect ? (
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                  ) : (
+                    <XCircle className="h-3 w-3 mr-1" />
+                  )}
                   {isCorrect ? "Correct" : "Incorrect"}
                 </Badge>
               )}
@@ -106,22 +167,27 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
             <div>
               <h4 className="font-medium mb-2">Options:</h4>
               <div className="space-y-1">
-                {question.options?.map((option: string, optionIndex: number) => (
-                  <div
-                    key={optionIndex}
-                    className={`p-2 rounded text-sm ${
-                      optionIndex === question.correctAnswer
-                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                        : optionIndex === answer
+                {question.options?.map(
+                  (option: string, optionIndex: number) => (
+                    <div
+                      key={optionIndex}
+                      className={`p-2 rounded text-sm ${
+                        optionIndex === Number(correctAnswerIndex)
+                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                          : optionIndex === Number(answer)
                           ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
                           : "bg-gray-50 dark:bg-gray-800"
-                    }`}
-                  >
-                    {option}
-                    {optionIndex === question.correctAnswer && " ✓ (Correct)"}
-                    {optionIndex === answer && optionIndex !== question.correctAnswer && " ✗ (Your answer)"}
-                  </div>
-                ))}
+                      }`}
+                    >
+                      {option}
+                      {optionIndex === Number(correctAnswerIndex) &&
+                        " ✓ (Correct)"}
+                      {optionIndex === Number(answer) &&
+                        optionIndex !== Number(correctAnswerIndex) &&
+                        " ✗ (Your answer)"}
+                    </div>
+                  )
+                )}
               </div>
             </div>
           )}
@@ -130,13 +196,17 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
             <div>
               <h4 className="font-medium mb-2">Student Answer:</h4>
               <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded">
-                <p className="text-sm whitespace-pre-wrap">{answer || "No answer provided"}</p>
+                <p className="text-sm whitespace-pre-wrap">
+                  {answer || "No answer provided"}
+                </p>
               </div>
 
               {isInstructor && needsGrading && (
                 <div className="space-y-3 border-t pt-4">
                   <div>
-                    <Label htmlFor={`score-${question.id}`}>Score (out of {question.points})</Label>
+                    <Label htmlFor={`score-${question.id}`}>
+                      Score (out of {question.points})
+                    </Label>
                     <Input
                       id={`score-${question.id}`}
                       type="number"
@@ -152,7 +222,9 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
                     />
                   </div>
                   <div>
-                    <Label htmlFor={`feedback-${question.id}`}>Feedback (Optional)</Label>
+                    <Label htmlFor={`feedback-${question.id}`}>
+                      Feedback (Optional)
+                    </Label>
                     <Textarea
                       id={`feedback-${question.id}`}
                       value={gradingFeedback[question.id] || ""}
@@ -171,16 +243,20 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
           )}
         </CardContent>
       </Card>
-    )
-  }
+    );
+  };
 
   return (
     <div className="space-y-6">
       <Tabs defaultValue={isInstructor ? "overview" : "results"}>
         <TabsList>
           {isInstructor && <TabsTrigger value="overview">Overview</TabsTrigger>}
-          <TabsTrigger value="results">{isInstructor ? "Individual Results" : "My Results"}</TabsTrigger>
-          {isInstructor && <TabsTrigger value="submissions">All Submissions</TabsTrigger>}
+          <TabsTrigger value="results">
+            {isInstructor ? "Individual Results" : "My Results"}
+          </TabsTrigger>
+          {isInstructor && (
+            <TabsTrigger value="submissions">All Submissions</TabsTrigger>
+          )}
         </TabsList>
 
         {isInstructor && (
@@ -189,27 +265,37 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Submissions</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Total Submissions
+                    </CardTitle>
                     <User className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{stats.totalSubmissions}</div>
+                    <div className="text-2xl font-bold">
+                      {stats.totalSubmissions}
+                    </div>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Graded</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Graded
+                    </CardTitle>
                     <CheckCircle className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{stats.completedSubmissions}</div>
+                    <div className="text-2xl font-bold">
+                      {stats.completedSubmissions}
+                    </div>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Average Score</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Average Score
+                    </CardTitle>
                     <BarChart3 className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
@@ -219,7 +305,9 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Highest Score</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Highest Score
+                    </CardTitle>
                     <BarChart3 className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
@@ -229,7 +317,9 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
 
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Lowest Score</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Lowest Score
+                    </CardTitle>
                     <BarChart3 className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
@@ -247,16 +337,20 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
               <CardContent>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="font-medium">Total Questions:</span> {exam.questions.length}
+                    <span className="font-medium">Total Questions:</span>{" "}
+                    {exam.questions.length}
                   </div>
                   <div>
-                    <span className="font-medium">Total Points:</span> {exam.totalpoints}
+                    <span className="font-medium">Total Points:</span>{" "}
+                    {exam.totalpoints}
                   </div>
                   <div>
-                    <span className="font-medium">Duration:</span> {exam.duration} minutes
+                    <span className="font-medium">Duration:</span>{" "}
+                    {exam.duration} minutes
                   </div>
                   <div>
-                    <span className="font-medium">Date:</span> {new Date(exam.date).toLocaleDateString()}
+                    <span className="font-medium">Date:</span>{" "}
+                    {new Date(exam.date).toLocaleDateString()}
                   </div>
                 </div>
               </CardContent>
@@ -268,22 +362,29 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
           {isInstructor ? (
             <div className="space-y-4">
               <div>
-                <Label htmlFor="submission-select">Select Student Submission:</Label>
+                <Label htmlFor="submission-select">
+                  Select Student Submission:
+                </Label>
                 <select
                   id="submission-select"
                   className="w-full mt-1 p-2 border rounded-md"
                   value={selectedSubmission?.id || ""}
                   onChange={(e) => {
-                    const submission = submissions.find((s) => s.id === e.target.value)
-                    setSelectedSubmission(submission || null)
+                    const submission = submissions.find(
+                      (s) => s.id === e.target.value
+                    );
+                    setSelectedSubmission(submission || null);
                   }}
                 >
                   <option value="">Select a submission...</option>
                   {submissions.map((submission) => (
                     <option key={submission.id} value={submission.id}>
                       Student {submission.studentid} - {submission.status}
-                      {submission.score !== undefined && submission.maxscore !== undefined &&
-                        ` (${Math.round((submission.score / submission.maxscore) * 100)}%)`}
+                      {submission.score !== undefined &&
+                        submission.maxscore !== undefined &&
+                        ` (${Math.round(
+                          (submission.score / submission.maxscore) * 100
+                        )}%)`}
                     </option>
                   ))}
                 </select>
@@ -298,50 +399,73 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
                     <CardContent>
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
-                          <span className="font-medium">Student ID:</span> {selectedSubmission.studentid}
+                          <span className="font-medium">Student ID:</span>{" "}
+                          {selectedSubmission.studentid}
                         </div>
                         <div>
                           <span className="font-medium">Status:</span>
                           <Badge
                             className="ml-2"
-                            variant={selectedSubmission.status === "graded" ? "default" : "secondary"}
+                            variant={
+                              selectedSubmission.status === "graded"
+                                ? "default"
+                                : "secondary"
+                            }
                           >
                             {selectedSubmission.status}
                           </Badge>
                         </div>
                         <div>
                           <span className="font-medium">Start Time:</span>{" "}
-                          {selectedSubmission.starttime ? new Date(selectedSubmission.starttime).toLocaleString() : "N/A"}
+                          {selectedSubmission.starttime
+                            ? new Date(
+                                selectedSubmission.starttime
+                              ).toLocaleString()
+                            : "N/A"}
                         </div>
                         <div>
                           <span className="font-medium">Submit Time:</span>{" "}
                           {selectedSubmission.submittime
-                            ? new Date(selectedSubmission.submittime).toLocaleString(undefined, {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
+                            ? new Date(
+                                selectedSubmission.submittime
+                              ).toLocaleString(undefined, {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
                               })
                             : "N/A"}
                         </div>
                         <div>
                           <span className="font-medium">Time Spent:</span>{" "}
-                          {selectedSubmission.timespent ? Math.round(selectedSubmission.timespent / 60) : "N/A"} minutes
+                          {selectedSubmission.timespent
+                            ? Math.round(selectedSubmission.timespent / 60)
+                            : "N/A"}{" "}
+                          minutes
                         </div>
-                        {selectedSubmission.score !== undefined && selectedSubmission.maxscore !== undefined && (
-                          <div>
-                            <span className="font-medium">Score:</span> {selectedSubmission.score}/
-                            {selectedSubmission.maxscore} (
-                            {Math.round((selectedSubmission.score / selectedSubmission.maxscore) * 100)}%)
-                          </div>
-                        )}
+                        {selectedSubmission.score !== undefined &&
+                          selectedSubmission.maxscore !== undefined && (
+                            <div>
+                              <span className="font-medium">Score:</span>{" "}
+                              {selectedSubmission.score}/
+                              {selectedSubmission.maxscore} (
+                              {Math.round(
+                                (selectedSubmission.score /
+                                  selectedSubmission.maxscore) *
+                                  100
+                              )}
+                              %)
+                            </div>
+                          )}
                       </div>
                     </CardContent>
                   </Card>
 
                   <div className="space-y-4">
-                    {exam.questions.map((question, index) => renderQuestionResult(question, index, selectedSubmission))}
+                    {exam.questions.map((question, index) =>
+                      renderQuestionResult(question, index, selectedSubmission)
+                    )}
                   </div>
 
                   {selectedSubmission.status === "submitted" && (
@@ -349,9 +473,14 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
                       <Button
                         onClick={() => {
                           // Handle grading submission
-                          const totalScore = Object.values(gradingScores).reduce((sum, score) => sum + score, 0)
+                          const totalScore = Object.values(
+                            gradingScores
+                          ).reduce((sum, score) => sum + score, 0);
                           // Update submission with grades - this would typically call an API
-                          console.log("Grading submission:", { totalScore, feedback: gradingFeedback })
+                          console.log("Grading submission:", {
+                            totalScore,
+                            feedback: gradingFeedback,
+                          });
                         }}
                       >
                         Save Grades
@@ -372,44 +501,69 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="font-medium">Status:</span>
-                      <Badge className="ml-2" variant={userSubmission.status === "graded" ? "default" : "secondary"}>
+                      <Badge
+                        className="ml-2"
+                        variant={
+                          userSubmission.status === "graded"
+                            ? "default"
+                            : "secondary"
+                        }
+                      >
                         {userSubmission.status}
                       </Badge>
                     </div>
                     <div>
                       <span className="font-medium">Submitted:</span>{" "}
-                      {userSubmission.submittime ? new Date(userSubmission.submittime).toLocaleString(undefined, {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        }) : "N/A"}
+                      {userSubmission.submittime
+                        ? new Date(userSubmission.submittime).toLocaleString(
+                            undefined,
+                            {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }
+                          )
+                        : "N/A"}
                     </div>
                     <div>
-                      <span className="font-medium">Time Spent:</span> {userSubmission.timespent ? Math.round(userSubmission.timespent / 60) : "N/A"}{" "}
+                      <span className="font-medium">Time Spent:</span>{" "}
+                      {userSubmission.timespent
+                        ? Math.round(userSubmission.timespent / 60)
+                        : "N/A"}{" "}
                       minutes
                     </div>
-                    {userSubmission.score !== undefined && userSubmission.maxscore !== undefined && (
-                      <div>
-                        <span className="font-medium">Score:</span> {userSubmission.score}/{userSubmission.maxscore} (
-                        {Math.round((userSubmission.score / userSubmission.maxscore) * 100)}%)
-                      </div>
-                    )}
+                    {userSubmission.score !== undefined &&
+                      userSubmission.maxscore !== undefined && (
+                        <div>
+                          <span className="font-medium">Score:</span>{" "}
+                          {userSubmission.score}/{userSubmission.maxscore} (
+                          {Math.round(
+                            (userSubmission.score / userSubmission.maxscore) *
+                              100
+                          )}
+                          %)
+                        </div>
+                      )}
                   </div>
                 </CardContent>
               </Card>
 
               {exam.showresults && (
                 <div className="space-y-4">
-                  {exam.questions.map((question, index) => renderQuestionResult(question, index, userSubmission))}
+                  {exam.questions.map((question, index) =>
+                    renderQuestionResult(question, index, userSubmission)
+                  )}
                 </div>
               )}
             </div>
           ) : (
             <Card>
               <CardContent className="text-center py-8">
-                <p className="text-muted-foreground">No submission found for this exam.</p>
+                <p className="text-muted-foreground">
+                  No submission found for this exam.
+                </p>
               </CardContent>
             </Card>
           )}
@@ -422,14 +576,28 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
                 <Card key={submission.id}>
                   <CardHeader>
                     <div className="flex justify-between items-center">
-                      <CardTitle className="text-lg">Student {submission.studentid}</CardTitle>
+                      <CardTitle className="text-lg">
+                        Student {submission.studentid}
+                      </CardTitle>
                       <div className="flex items-center space-x-2">
-                        <Badge variant={submission.status === "graded" ? "default" : "secondary"}>
+                        <Badge
+                          variant={
+                            submission.status === "graded"
+                              ? "default"
+                              : "secondary"
+                          }
+                        >
                           {submission.status}
                         </Badge>
-                        {submission.score !== undefined && submission.maxscore !== undefined && (
-                          <Badge variant="outline">{Math.round((submission.score / submission.maxscore) * 100)}%</Badge>
-                        )}
+                        {submission.score !== undefined &&
+                          submission.maxscore !== undefined && (
+                            <Badge variant="outline">
+                              {Math.round(
+                                (submission.score / submission.maxscore) * 100
+                              )}
+                              %
+                            </Badge>
+                          )}
                       </div>
                     </div>
                   </CardHeader>
@@ -437,14 +605,23 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div className="flex items-center">
                         <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                        {submission.timespent ? Math.round(submission.timespent / 60) : "N/A"} minutes
+                        {submission.timespent
+                          ? Math.round(submission.timespent / 60)
+                          : "N/A"}{" "}
+                        minutes
                       </div>
                       <div>
                         Submitted:{" "}
-                        {submission.submittime ? new Date(submission.submittime).toLocaleString() : "In progress"}
+                        {submission.submittime
+                          ? new Date(submission.submittime).toLocaleString()
+                          : "In progress"}
                       </div>
                       <div className="text-right">
-                        <Button variant="outline" size="sm" onClick={() => setSelectedSubmission(submission)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedSubmission(submission)}
+                        >
                           Review
                         </Button>
                       </div>
@@ -461,5 +638,5 @@ export function ExamResults({ exam, submissions, currentUser, onClose }: ExamRes
         <Button onClick={onClose}>Close</Button>
       </div>
     </div>
-  )
+  );
 }

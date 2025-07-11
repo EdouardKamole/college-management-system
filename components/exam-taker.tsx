@@ -1,22 +1,22 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import { useAuth } from "@/contexts/auth-context"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Clock, Send, AlertTriangle } from "lucide-react"
-import { v4 as uuidv4 } from "uuid"
-import type { Exam, ExamSubmission, Question } from "@/lib/data"
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useAuth } from "@/contexts/auth-context";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Clock, Send, AlertTriangle } from "lucide-react";
+import { v4 as uuidv4 } from "uuid";
+import type { Exam, ExamSubmission, Question } from "@/lib/data";
 
 interface ExamTakerProps {
-  exam: Exam
-  onSubmit: (submission: ExamSubmission) => void
-  onCancel: () => void
+  exam: Exam;
+  onSubmit: (submission: ExamSubmission) => void;
+  onCancel: () => void;
 }
 
 export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
@@ -27,21 +27,26 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            No questions available for this exam. Please contact your instructor.
+            No questions available for this exam. Please contact your
+            instructor.
           </AlertDescription>
         </Alert>
       </div>
     );
   }
-  const { user } = useAuth()
-  const [answers, setAnswers] = useState<{ [questionId: string]: string | number }>({})
-  const [currentQuestion, setCurrentQuestion] = useState(0)
-  const [timeLeft, setTimeLeft] = useState(exam.duration * 60) // Convert to seconds
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showConfirmSubmit, setShowConfirmSubmit] = useState(false)
-  const startTimeRef = useRef(new Date().toISOString())
+  const { user } = useAuth();
+  const [answers, setAnswers] = useState<{
+    [questionId: string]: string | number;
+  }>({});
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(exam.duration * 60); // Convert to seconds
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
+  const startTimeRef = useRef(new Date().toISOString());
 
-  const questions = exam.randomizequestions ? [...exam.questions].sort(() => Math.random() - 0.5) : exam.questions
+  const questions = exam.randomizequestions
+    ? [...exam.questions].sort(() => Math.random() - 0.5)
+    : exam.questions;
 
   const calculateScore = useCallback(() => {
     let score = 0;
@@ -54,11 +59,17 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
       maxScore += points;
       const answer = answers[question.id];
 
-      if (answer !== undefined && answer !== null && answer !== '') {
-        if (question.type === "multiple-choice" || question.type === "true-false") {
+      if (answer !== undefined && answer !== null && answer !== "") {
+        if (
+          question.type === "multiple-choice" ||
+          question.type === "true-false"
+        ) {
           // Handle both 'correctanswer' and 'correctAnswer' for backward compatibility
-          const correctAnswer = 'correctAnswer' in question ? question.correctAnswer : question.correctanswer;
-          if (answer === correctAnswer) {
+          const correctAnswer =
+            "correctAnswer" in question
+              ? question.correctAnswer
+              : question.correctanswer;
+          if (Number(answer) === Number(correctAnswer)) {
             score += points;
           }
         }
@@ -70,40 +81,49 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
   }, [questions, answers]);
 
   // Memoize handleSubmit to prevent unnecessary re-renders
-  const handleSubmit = useCallback((isAutoSubmit = false) => {
-    if (isSubmitting) return;
-    setIsSubmitting(true);
+  const handleSubmit = useCallback(
+    (isAutoSubmit = false) => {
+      if (isSubmitting) return;
+      setIsSubmitting(true);
 
-    const { score, maxScore } = calculateScore();
-    const hasManualGrading = questions.some((q) => (q.type === "short-answer" || q.type === "essay") && answers[q.id]);
+      const { score, maxScore } = calculateScore();
+      const hasManualGrading = questions.some(
+        (q) =>
+          (q.type === "short-answer" || q.type === "essay") && answers[q.id]
+      );
 
-    // Convert answers to the format expected by the database
-    const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => ({
-      questionId,
-      answer: answer !== undefined ? answer : null,
-      questionType: questions.find(q => q.id === questionId)?.type || 'unknown',
-      submittedAt: new Date().toISOString()
-    }));
+      // Convert answers to the format expected by the database
+      const formattedAnswers = Object.entries(answers).map(
+        ([questionId, answer]) => ({
+          questionId,
+          answer: answer !== undefined ? answer : null,
+          questionType:
+            questions.find((q) => q.id === questionId)?.type || "unknown",
+          submittedAt: new Date().toISOString(),
+        })
+      );
 
-    // Create a properly typed submission object with UUID
-    const submission: ExamSubmission = {
-      id: uuidv4(),
-      examid: exam.id,
-      studentid: user?.id || "",
-      submissiondate: new Date().toISOString(),
-      answers: formattedAnswers, // Array of { questionId, answer, questionType, submittedAt }
-      starttime: startTimeRef.current,
-      submittime: new Date().toISOString(),
-      timespent: exam.duration * 60 - timeLeft,
-      status: hasManualGrading ? "submitted" : "graded",
-      score: hasManualGrading ? undefined : score,
-      maxscore: exam.totalpoints,
-      autograded: !hasManualGrading,
-      fileurl: ""
-    };
+      // Create a properly typed submission object with UUID
+      const submission: ExamSubmission = {
+        id: uuidv4(),
+        examid: exam.id,
+        studentid: user?.id || "",
+        submissiondate: new Date().toISOString(),
+        answers: formattedAnswers, // Array of { questionId, answer, questionType, submittedAt }
+        starttime: startTimeRef.current,
+        submittime: new Date().toISOString(),
+        timespent: exam.duration * 60 - timeLeft,
+        status: hasManualGrading ? "submitted" : "graded",
+        score: hasManualGrading ? undefined : score,
+        maxscore: exam.totalpoints,
+        autograded: !hasManualGrading,
+        fileurl: "",
+      };
 
-    onSubmit(submission);
-  }, [isSubmitting, answers, timeLeft, exam, user, onSubmit, calculateScore]);
+      onSubmit(submission);
+    },
+    [isSubmitting, answers, timeLeft, exam, user, onSubmit, calculateScore]
+  );
 
   // Memoize handleAutoSubmit to prevent unnecessary re-renders
   const handleAutoSubmit = useCallback(() => {
@@ -114,12 +134,12 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
   // Handle timer effect
   useEffect(() => {
     if (!exam.questions?.length) {
-      console.error('No questions found in exam');
+      console.error("No questions found in exam");
       return;
     }
 
     const timer = setInterval(() => {
-      setTimeLeft(prev => {
+      setTimeLeft((prev) => {
         if (prev <= 1) {
           handleAutoSubmit();
           clearInterval(timer);
@@ -135,29 +155,33 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
   }, [handleAutoSubmit, exam.questions?.length]);
 
   const formatTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    const secs = seconds % 60
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
 
     if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+      return `${hours}:${minutes.toString().padStart(2, "0")}:${secs
+        .toString()
+        .padStart(2, "0")}`;
     }
-    return `${minutes}:${secs.toString().padStart(2, "0")}`
-  }
+    return `${minutes}:${secs.toString().padStart(2, "0")}`;
+  };
 
   const handleAnswerChange = (questionId: string, answer: string | number) => {
-    setAnswers((prev) => ({ ...prev, [questionId]: answer }))
-  }
+    setAnswers((prev) => ({ ...prev, [questionId]: answer }));
+  };
 
   // handleSubmit is now memoized and moved up with the other handlers
 
   const getAnsweredCount = () => {
-    return Object.keys(answers).filter((key) => answers[key] !== undefined && answers[key] !== "").length
-  }
+    return Object.keys(answers).filter(
+      (key) => answers[key] !== undefined && answers[key] !== ""
+    ).length;
+  };
 
   const getProgressPercentage = () => {
-    return (getAnsweredCount() / questions.length) * 100
-  }
+    return (getAnsweredCount() / questions.length) * 100;
+  };
 
   const parseOptions = (options: any): string[] => {
     try {
@@ -165,27 +189,32 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
       if (Array.isArray(options)) {
         return options;
       }
-      
+
       // If options is a string that starts with [ and ends with ], parse it as JSON
-      if (typeof options === 'string' && options.trim().startsWith('[') && options.trim().endsWith(']')) {
+      if (
+        typeof options === "string" &&
+        options.trim().startsWith("[") &&
+        options.trim().endsWith("]")
+      ) {
         return JSON.parse(options);
       }
-      
+
       // If options is a string that might be a stringified JSON object
-      if (typeof options === 'string') {
+      if (typeof options === "string") {
         try {
           const parsed = JSON.parse(options);
           if (Array.isArray(parsed)) return parsed;
-          if (parsed && parsed.options && Array.isArray(parsed.options)) return parsed.options;
+          if (parsed && parsed.options && Array.isArray(parsed.options))
+            return parsed.options;
         } catch (e) {
-          console.warn('Failed to parse options:', e);
+          console.warn("Failed to parse options:", e);
         }
       }
-      
+
       // Default fallback
       return ["True", "False"];
     } catch (e) {
-      console.warn('Error parsing options:', e);
+      console.warn("Error parsing options:", e);
       return ["True", "False"];
     }
   };
@@ -203,7 +232,9 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
             </CardTitle>
             <div className="flex items-center space-x-2">
               <Badge variant="outline">{question.points} points</Badge>
-              {question.required && <Badge variant="destructive">Required</Badge>}
+              {question.required && (
+                <Badge variant="destructive">Required</Badge>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -221,11 +252,16 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
                     id={`${question.id}-${optionIndex}`}
                     name={question.id}
                     value={optionIndex}
-                    checked={answer === optionIndex}
-                    onChange={(e) => handleAnswerChange(question.id, Number.parseInt(e.target.value))}
+                    checked={Number(answer) === optionIndex}
+                    onChange={(e) =>
+                      handleAnswerChange(question.id, optionIndex)
+                    }
                     className="w-4 h-4"
                   />
-                  <label htmlFor={`${question.id}-${optionIndex}`} className="text-sm cursor-pointer flex-1">
+                  <label
+                    htmlFor={`${question.id}-${optionIndex}`}
+                    className="text-sm cursor-pointer flex-1"
+                  >
                     {option}
                   </label>
                 </div>
@@ -236,18 +272,26 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
           {question.type === "true-false" && (
             <div className="space-y-3">
               {options.map((option, optionIndex) => (
-                <div key={optionIndex} className="flex items-center space-x-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md">
+                <div
+                  key={optionIndex}
+                  className="flex items-center space-x-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md"
+                >
                   <input
                     type="radio"
                     id={`${question.id}-${optionIndex}`}
                     name={question.id}
                     value={optionIndex}
                     checked={answer === optionIndex}
-                    onChange={(e) => handleAnswerChange(question.id, Number.parseInt(e.target.value))}
+                    onChange={(e) =>
+                      handleAnswerChange(
+                        question.id,
+                        Number.parseInt(e.target.value)
+                      )
+                    }
                     className="w-4 h-4 text-blue-600 focus:ring-blue-500"
                   />
-                  <label 
-                    htmlFor={`${question.id}-${optionIndex}`} 
+                  <label
+                    htmlFor={`${question.id}-${optionIndex}`}
                     className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer flex-1"
                   >
                     {option}
@@ -276,8 +320,8 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
           )}
         </CardContent>
       </Card>
-    )
-  }
+    );
+  };
 
   if (showConfirmSubmit) {
     return (
@@ -285,8 +329,9 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            Are you sure you want to submit your exam? You have answered {getAnsweredCount()} out of {questions.length}{" "}
-            questions. This action cannot be undone.
+            Are you sure you want to submit your exam? You have answered{" "}
+            {getAnsweredCount()} out of {questions.length} questions. This
+            action cannot be undone.
           </AlertDescription>
         </Alert>
 
@@ -299,7 +344,7 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
           </Button>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -309,11 +354,16 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
         <div>
           <h2 className="text-xl font-bold">{exam.name}</h2>
           <p className="text-sm text-muted-foreground">
-            Progress: {getAnsweredCount()} of {questions.length} questions answered
+            Progress: {getAnsweredCount()} of {questions.length} questions
+            answered
           </p>
         </div>
         <div className="text-right">
-          <div className={`text-2xl font-bold ${timeLeft < 300 ? "text-red-600" : ""}`}>
+          <div
+            className={`text-2xl font-bold ${
+              timeLeft < 300 ? "text-red-600" : ""
+            }`}
+          >
             <Clock className="inline h-5 w-5 mr-2" />
             {formatTime(timeLeft)}
           </div>
@@ -335,7 +385,8 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
         <Alert className="border-red-200 bg-red-50">
           <AlertTriangle className="h-4 w-4 text-red-600" />
           <AlertDescription className="text-red-800">
-            Warning: Less than 5 minutes remaining! Your exam will be automatically submitted when time runs out.
+            Warning: Less than 5 minutes remaining! Your exam will be
+            automatically submitted when time runs out.
           </AlertDescription>
         </Alert>
       )}
@@ -353,7 +404,9 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
       )}
 
       {/* Questions */}
-      <div className="space-y-6">{questions.map((question, index) => renderQuestion(question, index))}</div>
+      <div className="space-y-6">
+        {questions.map((question, index) => renderQuestion(question, index))}
+      </div>
 
       {/* Navigation and submit */}
       <div className="flex justify-between items-center p-4 border-t">
@@ -375,5 +428,5 @@ export function ExamTaker({ exam, onSubmit, onCancel }: ExamTakerProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }
