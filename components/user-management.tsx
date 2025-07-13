@@ -1,13 +1,25 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useAuth } from "@/contexts/auth-context"
-import { useSupabaseData } from "@/hooks/use-supabase-data"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useState, useEffect, JSX } from "react";
+import { useAuth } from "@/contexts/auth-context";
+import { useSupabaseData } from "@/hooks/use-supabase-data";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,115 +30,127 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { Users, Search, Edit, Trash2, Shield, GraduationCap, BookOpen, Eye, EyeOff } from "lucide-react"
-import { UserRegistration } from "./user-registration"
+} from "@/components/ui/alert-dialog";
+import {
+  Users,
+  Search,
+  Edit,
+  Trash2,
+  Shield,
+  GraduationCap,
+  BookOpen,
+  Eye,
+  EyeOff,
+} from "lucide-react";
+import { UserRegistration } from "./user-registration";
 
 interface User {
-  id: string
-  username: string
-  pin: string
-  role: "admin" | "instructor" | "student"
-  name: string
-  email: string
-  dateOfBirth?: string
-  homeDistrict?: string
-  studentTelNo?: string
-  courseId?: string
-  educationLevel?: string
-  academicStatus?: string
+  id: string;
+  username: string;
+  pin: string;
+  role: "admin" | "instructor" | "student";
+  name: string;
+  email: string;
+  dateOfBirth?: string;
+  homeDistrict?: string;
+  studentTelNo?: string;
+  courseId?: string;
+  educationLevel?: string;
+  academicStatus?: string;
 }
 
 export function UserManagement() {
-  const { user: currentUser } = useAuth()
-  const { data, loading, error, deleteUser } = useSupabaseData()
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [roleFilter, setRoleFilter] = useState<string>("all")
+  const { user: currentUser } = useAuth();
+  const { data, loading, error, deleteUser } = useSupabaseData();
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
 
   // Always use users from Supabase
-  const users = data.users as User[]
+  const users = data.users as User[];
 
   useEffect(() => {
-    let filtered = users
+    let filtered = users;
     if (searchTerm) {
       filtered = filtered.filter(
         (user) =>
           user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.email.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
+          user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
     if (roleFilter !== "all") {
-      filtered = filtered.filter((user) => user.role === roleFilter)
+      filtered = filtered.filter((user) => user.role === roleFilter);
     }
-    setFilteredUsers(filtered)
-  }, [users, searchTerm, roleFilter])
+    setFilteredUsers(filtered);
+  }, [users, searchTerm, roleFilter]);
 
   useEffect(() => {
-    let filtered = users
+    let filtered = users;
 
     if (searchTerm) {
       filtered = filtered.filter(
         (user) =>
           user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.username.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
+          user.username.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
 
     if (roleFilter !== "all") {
-      filtered = filtered.filter((user) => user.role === roleFilter)
+      filtered = filtered.filter((user) => user.role === roleFilter);
     }
 
-    setFilteredUsers(filtered)
-  }, [users, searchTerm, roleFilter])
+    setFilteredUsers(filtered);
+  }, [users, searchTerm, roleFilter]);
 
   const handleDelete = async (userId: string) => {
     if (userId === currentUser?.id) {
-      alert("You cannot delete your own account!")
-      return
+      alert("You cannot delete your own account!");
+      return;
     }
     try {
-      await deleteUser(userId)
+      await deleteUser(userId);
     } catch (err: any) {
-      alert(err.message || "Failed to delete user.")
+      alert(err.message || "Failed to delete user.");
     }
-  }
+  };
 
-  const getRoleIcon = (role: User["role"]) => {
+  const getRoleIcon = (role: User["role"]): JSX.Element => {
     switch (role) {
       case "admin":
-        return <Shield className="h-4 w-4" />
+        return <Shield className="h-4 w-4" />;
       case "instructor":
-        return <BookOpen className="h-4 w-4" />
+        return <BookOpen className="h-4 w-4" />;
       case "student":
-        return <GraduationCap className="h-4 w-4" />
+        return <GraduationCap className="h-4 w-4" />;
+      default:
+        return <></>;
     }
-  }
+  };
 
   const getRoleBadgeVariant = (role: User["role"]) => {
     switch (role) {
       case "admin":
-        return "destructive"
+        return "destructive";
       case "instructor":
-        return "default"
+        return "default";
       case "student":
-        return "secondary"
+        return "secondary";
     }
-  }
+  };
 
   const getCourseName = (courseId?: string) => {
-    if (!courseId) return "No course assigned"
-    const course = data.courses.find((c) => c.id === courseId)
-    return course ? course.name : "Unknown course"
-  }
+    if (!courseId) return "No course assigned";
+    const course = data.courses.find((c) => c.id === courseId);
+    return course ? course.name : "Unknown course";
+  };
 
   const userStats = {
     total: users.length,
     admins: users.filter((u) => u.role === "admin").length,
     instructors: users.filter((u) => u.role === "instructor").length,
     students: users.filter((u) => u.role === "student").length,
-  }
+  };
 
   // Only admins can access user management
   if (currentUser?.role !== "admin") {
@@ -134,11 +158,13 @@ export function UserManagement() {
       <div className="p-6">
         <Card>
           <CardContent className="flex items-center justify-center h-32">
-            <p className="text-muted-foreground">Access denied. Admin privileges required.</p>
+            <p className="text-muted-foreground">
+              Access denied. Admin privileges required.
+            </p>
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   if (loading) {
@@ -157,7 +183,9 @@ export function UserManagement() {
       <div className="fixed inset-0 flex items-center justify-center bg-white bg-opacity-60 z-50">
         <div className="flex flex-col items-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-red-500 border-t-transparent mb-4" />
-          <span className="text-lg text-red-700">Error loading users: {error}</span>
+          <span className="text-lg text-red-700">
+            Error loading users: {error}
+          </span>
         </div>
       </div>
     );
@@ -169,7 +197,9 @@ export function UserManagement() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold">User Management</h1>
-          <p className="text-muted-foreground">Manage system users, roles, and permissions</p>
+          <p className="text-muted-foreground">
+            Manage system users, roles, and permissions
+          </p>
         </div>
         <UserRegistration />
       </div>
@@ -205,7 +235,9 @@ export function UserManagement() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Administrators</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Administrators
+            </CardTitle>
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -260,7 +292,10 @@ export function UserManagement() {
                     <CardDescription>{user.email}</CardDescription>
                   </div>
                 </div>
-                <Badge variant={getRoleBadgeVariant(user.role)} className="flex items-center gap-1">
+                <Badge
+                  variant={getRoleBadgeVariant(user.role)}
+                  className="flex items-center gap-1"
+                >
                   {getRoleIcon(user.role)}
                   {user.role}
                 </Badge>
@@ -268,8 +303,7 @@ export function UserManagement() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                </div>
+                <div className="flex justify-between"></div>
                 {/* <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Password:</span>
                   <div className="flex items-center space-x-2">
@@ -292,10 +326,11 @@ export function UserManagement() {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Course:</span>
                       <span className="text-xs">
-  {Array.isArray(user.courseId) && user.courseId.length > 0
-    ? user.courseId.map(getCourseName).join(', ')
-    : getCourseName(user.courseId)}
-</span>
+                        {Array.isArray(user.courseId) &&
+                        user.courseId.length > 0
+                          ? user.courseId.map(getCourseName).join(", ")
+                          : getCourseName(user.courseId)}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Status:</span>
@@ -307,7 +342,12 @@ export function UserManagement() {
                 )}
                 <div className="flex space-x-2 pt-2">
                   {/* TODO: Wire up edit user dialog/modal using updateUser from useSupabaseData */}
-                  <Button size="sm" variant="outline" className="flex-1" disabled>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    disabled
+                  >
                     <Edit className="h-4 w-4 mr-1" />
                     Edit
                   </Button>
@@ -322,12 +362,17 @@ export function UserManagement() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete User</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Are you sure you want to delete {user.name}? This action cannot be undone.
+                            Are you sure you want to delete {user.name}? This
+                            action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => handleDelete(user.id)}>Delete</AlertDialogAction>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(user.id)}
+                          >
+                            Delete
+                          </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
@@ -352,5 +397,5 @@ export function UserManagement() {
         </div>
       )}
     </div>
-  )
+  );
 }
