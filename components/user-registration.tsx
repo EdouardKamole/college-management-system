@@ -127,6 +127,8 @@ export function UserRegistration() {
     reasons: string[];
   }>({ eligible: true, reasons: [] });
 
+  const [subjectWarning, setSubjectWarning] = useState("");
+
   const generateCredentials = (type: "student" | "staff") => {
     const name = type === "student" ? studentData.name : staffData.name;
     const username =
@@ -149,12 +151,33 @@ export function UserRegistration() {
   };
 
   const handleSubjectChange = (subject: string, checked: boolean) => {
+    setSubjectWarning(""); // Clear previous warning
+
+    let newSubjects = checked
+      ? [...studentData.subjectcombination, subject]
+      : studentData.subjectcombination.filter((s) => s !== subject);
+
+    // If adding a subject, check the rule
+    if (checked) {
+      // If this is the third subject and neither Math nor Physics is present, block
+      if (
+        newSubjects.length > 2 &&
+        !newSubjects.includes("Mathematics") &&
+        !newSubjects.includes("Physics")
+      ) {
+        setSubjectWarning(
+          "Subject combination must include at least Mathematics or Physics."
+        );
+        return; // Do not update state
+      }
+    }
+
     setStudentData((prev) => ({
       ...prev,
-      subjectcombination: checked
-        ? [...prev.subjectcombination, subject]
-        : prev.subjectcombination.filter((s) => s !== subject),
+      subjectcombination: newSubjects,
     }));
+
+    setTimeout(checkEligibility, 100);
   };
 
   const checkEligibility = () => {
@@ -807,6 +830,9 @@ export function UserRegistration() {
                       );
                     })}
                   </div>
+                  {subjectWarning && (
+                    <div className="text-red-600 text-sm">{subjectWarning}</div>
+                  )}
                 </div>
 
                 {studentData.subjectcombination.length > 0 && (
